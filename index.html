@@ -376,10 +376,11 @@
       display: none;
     }
     .progress-card .spinner {
-      font-size: 2rem;
       animation: spin 1.4s linear infinite;
       display: inline-block;
       margin-bottom: 12px;
+      width: 56px;
+      height: 56px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
     .progress-card p { color: var(--navy); font-size: 0.95rem; font-weight: 500; }
@@ -550,7 +551,13 @@
 
   <!-- Processing -->
   <div class="progress-card" id="progress-card">
-    <div class="spinner">⚙️</div>
+    <div class="spinner">
+      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="56" height="56">
+        <polygon points="0,0 100,0 50,50" fill="#1a3a67"/>
+        <polygon points="100,0 100,100 50,50" fill="#fcb034"/>
+        <polygon points="0,100 100,100 50,50" fill="#000000"/>
+      </svg>
+    </div>
     <p>Reading and simplifying your report…</p>
     <small>This usually takes 15–30 seconds</small>
   </div>
