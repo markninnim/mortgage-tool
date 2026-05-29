@@ -6,3 +6,4 @@ python-docx
 reportlab
 anthropic
 python-dotenv
+Pillow

@@ -39,6 +39,7 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 USAGE_FILE = Path("usage.json")
 LOGO_PATH = Path("logo")          # stored without extension; we keep the original bytes + mime type
 LOGO_META_FILE = Path("logo_meta.json")
+LOGO_COLORS_FILE = Path("logo_colors.json")
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp"}
 
 
@@ -53,11 +54,95 @@ def delete_logo():
         LOGO_PATH.unlink()
     if LOGO_META_FILE.exists():
         LOGO_META_FILE.unlink()
+    if LOGO_COLORS_FILE.exists():
+        LOGO_COLORS_FILE.unlink()
 
 def logo_content_type() -> str | None:
     if LOGO_META_FILE.exists():
         return json.loads(LOGO_META_FILE.read_text()).get("content_type")
     return None
+
+
+def _hex_to_luminance(hex_color: str) -> float:
+    """Return relative luminance (0=black, 1=white) for a hex colour."""
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i:i+2], 16) / 255.0 for i in (0, 2, 4))
+    def lin(c):
+        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
+def extract_logo_colors(data: bytes, content_type: str) -> dict:
+    """
+    Extract brand colours from the uploaded logo.
+    Returns {"primary": "#rrggbb"} — the darkest colour found,
+    suitable for use as a heading/title colour.
+    Falls back to the default navy if nothing useful is found.
+    """
+    DEFAULT = "#1e3a5f"
+    candidates: list[str] = []
+
+    if content_type == "image/svg+xml":
+        svg_text = data.decode("utf-8", errors="ignore")
+        # Pick up fill: #rrggbb in <style> blocks and inline fill="..." attributes
+        candidates += re.findall(r'fill:\s*(#[0-9a-fA-F]{6})\b', svg_text)
+        candidates += re.findall(r'fill="(#[0-9a-fA-F]{6})"', svg_text)
+    else:
+        try:
+            from PIL import Image as PILImage
+            import colorsys
+
+            img = PILImage.open(io.BytesIO(data)).convert("RGBA")
+            img.thumbnail((200, 200))  # shrink for speed
+
+            # Collect all non-transparent pixels
+            pixels = [
+                (r, g, b)
+                for r, g, b, a in img.getdata()
+                if a > 128  # skip transparent
+            ]
+            if not pixels:
+                return {"primary": DEFAULT}
+
+            # Quantise: bucket each channel to nearest 16
+            buckets: dict[tuple, int] = {}
+            for r, g, b in pixels:
+                key = (r >> 4, g >> 4, b >> 4)
+                buckets[key] = buckets.get(key, 0) + 1
+
+            # Sort by frequency, convert back to full hex
+            for (r4, g4, b4), _ in sorted(buckets.items(), key=lambda x: -x[1])[:20]:
+                r, g, b = r4 * 16 + 8, g4 * 16 + 8, b4 * 16 + 8
+                # Skip near-white and near-black (unlikely brand colours)
+                lum = _hex_to_luminance(f"#{r:02x}{g:02x}{b:02x}")
+                if 0.02 < lum < 0.70:
+                    candidates.append(f"#{r:02x}{g:02x}{b:02x}")
+
+        except Exception:
+            pass
+
+    # Filter out near-white colours and pick the darkest (best for dark headings)
+    dark_candidates = [
+        c for c in candidates
+        if _hex_to_luminance(c) < 0.35
+    ]
+
+    if dark_candidates:
+        primary = min(dark_candidates, key=_hex_to_luminance)
+    elif candidates:
+        primary = min(candidates, key=_hex_to_luminance)
+    else:
+        primary = DEFAULT
+
+    return {"primary": primary}
+
+
+def load_logo_colors() -> dict:
+    if LOGO_COLORS_FILE.exists():
+        return json.loads(LOGO_COLORS_FILE.read_text())
+    return {}
+
+
 COST_PER_REPORT = 0.02  # estimated USD mid-point
 
 
@@ -215,6 +300,10 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
         """Scale font size by accessibility factor."""
         return round(base * size_factor, 1)
 
+    # Brand colour from uploaded logo (used when no a11y override is active)
+    logo_colors_data = load_logo_colors()
+    brand_primary = logo_colors_data.get("primary", "#1e3a5f")
+
     # Colour palette
     if high_contrast:
         col_heading  = colors.black
@@ -227,10 +316,10 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
         col_muted    = colors.HexColor("#555555")
         col_rule     = colors.HexColor("#0072B2")
     else:
-        col_heading  = colors.HexColor("#1e3a5f")
+        col_heading  = colors.HexColor(brand_primary)
         col_body     = colors.HexColor("#111827")
         col_muted    = colors.HexColor("#6b7280")
-        col_rule     = colors.HexColor("#1e3a5f")
+        col_rule     = colors.HexColor(brand_primary)
 
     # Font — dyslexia mode uses wider Helvetica with extra spacing
     body_font    = "Helvetica"
@@ -411,7 +500,9 @@ async def upload_logo(file: UploadFile = File(...)):
     if len(data) > 2 * 1024 * 1024:  # 2 MB limit
         raise HTTPException(status_code=400, detail="Logo must be under 2 MB.")
     save_logo(data, ct)
-    return {"status": "ok", "content_type": ct}
+    colors_data = extract_logo_colors(data, ct)
+    LOGO_COLORS_FILE.write_text(json.dumps(colors_data))
+    return {"status": "ok", "content_type": ct, "brand_color": colors_data.get("primary")}
 
 
 @app.get("/logo")
