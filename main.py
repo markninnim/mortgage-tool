@@ -250,6 +250,7 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         spaceBefore=14,
         spaceAfter=6,
         fontName="Helvetica-Bold",
+        keepWithNext=True,
     )
     body_style = ParagraphStyle(
         "Body",
