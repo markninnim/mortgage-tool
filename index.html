@@ -422,19 +422,15 @@
   function setLogoState(hasLogo) {
     const preview = document.getElementById("logo-preview-wrap");
     const dropzone = document.getElementById("logo-dropzone");
-    const headerLogo = document.getElementById("header-logo");
 
     if (hasLogo) {
       const url = "/logo?t=" + Date.now(); // cache-bust
       document.getElementById("logo-preview").src = url;
       preview.style.display = "flex";
       dropzone.style.display = "none";
-      headerLogo.src = url;
-      headerLogo.style.display = "block";
     } else {
       preview.style.display = "none";
       dropzone.style.display = "block";
-      headerLogo.style.display = "none";
     }
   }
 
