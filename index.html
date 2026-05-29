@@ -48,6 +48,149 @@
     header .header-left p  { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
     header .spacer { flex: 1; }
 
+    /* Accessibility button */
+    #a11y-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      color: var(--navy);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    #a11y-btn:hover { background: var(--bg); }
+
+    /* Accessibility panel */
+    #a11y-panel {
+      display: none;
+      position: fixed;
+      top: 64px;
+      right: 16px;
+      width: 300px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+      z-index: 1000;
+      padding: 20px;
+    }
+    #a11y-panel.open { display: block; }
+    #a11y-panel h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #a11y-panel h3 button {
+      background: none; border: none; cursor: pointer;
+      font-size: 1.1rem; color: var(--muted); line-height: 1;
+    }
+
+    .a11y-section { margin-bottom: 18px; }
+    .a11y-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    /* Text size buttons */
+    .a11y-size-btns { display: flex; gap: 6px; }
+    .a11y-size-btns button {
+      flex: 1;
+      padding: 7px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--surface);
+      cursor: pointer;
+      font-size: 0.85rem;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .a11y-size-btns button.active,
+    .a11y-size-btns button:hover { background: var(--navy); color: white; border-color: var(--navy); }
+
+    /* Toggles */
+    .a11y-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .a11y-toggle-row span { font-size: 0.875rem; color: var(--text); }
+    .toggle-switch {
+      position: relative;
+      width: 40px; height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-switch .slider {
+      position: absolute; inset: 0;
+      background: var(--border);
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-switch .slider::before {
+      content: "";
+      position: absolute;
+      width: 16px; height: 16px;
+      left: 3px; top: 3px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle-switch input:checked + .slider { background: var(--navy); }
+    .toggle-switch input:checked + .slider::before { transform: translateX(18px); }
+
+    /* High contrast theme */
+    body.hc {
+      --bg: #000000;
+      --surface: #111111;
+      --border: #ffffff;
+      --text: #ffffff;
+      --navy: #ffffff;
+      --muted: #cccccc;
+      --primary: #ffff00;
+      --accent: #ffff00;
+    }
+    body.hc header { background: #000; border-color: #fff; }
+    body.hc .card { background: #111; border-color: #fff; }
+    body.hc .submit { background: #ffff00; color: #000; }
+    body.hc .dropzone { border-color: #fff; }
+
+    /* Dyslexia font */
+    @import url('https://fonts.googleapis.com/css2?family=Lexend:wght@400;600;700&display=swap');
+    body.dyslexic, body.dyslexic input, body.dyslexic select, body.dyslexic button {
+      font-family: 'Lexend', sans-serif !important;
+      letter-spacing: 0.05em;
+      line-height: 1.8;
+      word-spacing: 0.1em;
+    }
+
+    /* Colour blind mode — replace navy/blue with high-distinguishable colours */
+    body.cb {
+      --navy: #0072B2;
+      --accent: #E69F00;
+      --primary: #0072B2;
+      --success: #009E73;
+    }
+    body.cb .step-badge { background: #0072B2; }
+    body.cb .submit { background: #0072B2; }
+
+    /* Font size overrides */
+    body.text-lg { font-size: 110%; }
+    body.text-xl { font-size: 125%; }
+
     .usage-pill {
       display: flex;
       flex-direction: column;
@@ -344,12 +487,56 @@
     <h1>Mortgage Suitability Tool</h1>
   </div>
   <div class="spacer"></div>
+  <button id="a11y-btn" onclick="toggleA11yPanel()" aria-label="Accessibility options">
+    ♿ Accessibility
+  </button>
   <div class="usage-pill">
     <span class="usage-count" id="usage-count">—</span>
     <span class="usage-label">this month</span>
     <span class="usage-cost" id="usage-cost"></span>
   </div>
 </header>
+
+<!-- Accessibility panel -->
+<div id="a11y-panel" role="dialog" aria-label="Accessibility options">
+  <h3>Accessibility <button onclick="toggleA11yPanel()" aria-label="Close">✕</button></h3>
+
+  <div class="a11y-section">
+    <div class="a11y-label">Text size</div>
+    <div class="a11y-size-btns">
+      <button id="sz-normal" onclick="setTextSize('normal')">Normal</button>
+      <button id="sz-lg" onclick="setTextSize('lg')">Large</button>
+      <button id="sz-xl" onclick="setTextSize('xl')">Extra large</button>
+    </div>
+  </div>
+
+  <div class="a11y-section">
+    <div class="a11y-label">Display</div>
+    <div class="a11y-toggle-row">
+      <span>High contrast</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-hc" onchange="applyA11y()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="a11y-toggle-row">
+      <span>Dyslexia-friendly font</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-dyslexic" onchange="applyA11y()">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="a11y-toggle-row">
+      <span>Colour blind mode</span>
+      <label class="toggle-switch">
+        <input type="checkbox" id="toggle-cb" onchange="applyA11y()">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <button onclick="resetA11y()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;font-size:0.85rem;color:var(--muted);">Reset to defaults</button>
+</div>
 
 <main>
 
@@ -430,6 +617,76 @@
 </main>
 
 <script>
+  // ── Accessibility ────────────────────────────────────────────────────────
+  const A11Y_KEY = "a11y_prefs";
+
+  function loadA11yPrefs() {
+    try { return JSON.parse(localStorage.getItem(A11Y_KEY) || "{}"); } catch { return {}; }
+  }
+  function saveA11yPrefs(prefs) {
+    localStorage.setItem(A11Y_KEY, JSON.stringify(prefs));
+  }
+
+  function applyA11y() {
+    const hc       = document.getElementById("toggle-hc").checked;
+    const dyslexic = document.getElementById("toggle-dyslexic").checked;
+    const cb       = document.getElementById("toggle-cb").checked;
+    document.body.classList.toggle("hc", hc);
+    document.body.classList.toggle("dyslexic", dyslexic);
+    document.body.classList.toggle("cb", cb);
+    saveA11yPrefs({ hc, dyslexic, cb, size: currentSize() });
+  }
+
+  function currentSize() {
+    if (document.body.classList.contains("text-xl")) return "xl";
+    if (document.body.classList.contains("text-lg")) return "lg";
+    return "normal";
+  }
+
+  function setTextSize(size) {
+    document.body.classList.remove("text-lg", "text-xl");
+    if (size === "lg") document.body.classList.add("text-lg");
+    if (size === "xl") document.body.classList.add("text-xl");
+    ["normal","lg","xl"].forEach(s => {
+      document.getElementById("sz-" + s).classList.toggle("active", s === size);
+    });
+    const prefs = loadA11yPrefs();
+    prefs.size = size;
+    saveA11yPrefs(prefs);
+  }
+
+  function toggleA11yPanel() {
+    document.getElementById("a11y-panel").classList.toggle("open");
+  }
+
+  function resetA11y() {
+    document.getElementById("toggle-hc").checked = false;
+    document.getElementById("toggle-dyslexic").checked = false;
+    document.getElementById("toggle-cb").checked = false;
+    document.body.classList.remove("hc","dyslexic","cb","text-lg","text-xl");
+    ["normal","lg","xl"].forEach(s => document.getElementById("sz-" + s).classList.toggle("active", s === "normal"));
+    saveA11yPrefs({});
+  }
+
+  // Close panel when clicking outside
+  document.addEventListener("click", e => {
+    const panel = document.getElementById("a11y-panel");
+    const btn   = document.getElementById("a11y-btn");
+    if (panel.classList.contains("open") && !panel.contains(e.target) && !btn.contains(e.target)) {
+      panel.classList.remove("open");
+    }
+  });
+
+  // Restore saved prefs on load
+  (function restoreA11y() {
+    const p = loadA11yPrefs();
+    if (p.hc)       { document.getElementById("toggle-hc").checked = true; document.body.classList.add("hc"); }
+    if (p.dyslexic) { document.getElementById("toggle-dyslexic").checked = true; document.body.classList.add("dyslexic"); }
+    if (p.cb)       { document.getElementById("toggle-cb").checked = true; document.body.classList.add("cb"); }
+    if (p.size)     setTextSize(p.size);
+    else            document.getElementById("sz-normal").classList.add("active");
+  })();
+
   // ── Logo branding ─────────────────────────────────────────────────────────
   async function checkLogoExists() {
     try {
