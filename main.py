@@ -218,6 +218,7 @@ LANGUAGE_INSTRUCTION = {
     "Arabic": "Write your entire response in Arabic (العربية). Use right-to-left formatting where possible.",
     "Mandarin Chinese": "Write your entire response in Simplified Chinese (简体中文).",
     "Hindi": "Write your entire response in Hindi (हिन्दी).",
+    "Nepali": "Write your entire response in Nepali (नेपाली). Nepali is written in the Devanagari script.",
     "Bengali": "Write your entire response in Bengali (বাংলা).",
     "Urdu": "Write your entire response in Urdu (اردو).",
     "Punjabi": "Write your entire response in Punjabi (ਪੰਜਾਬੀ).",
