@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+python-multipart
+pypdf
+python-docx
+reportlab
+anthropic
+python-dotenv

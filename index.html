@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mortgage Summary Tool</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy: #1e3a5f;
+      --navy-light: #2d5282;
+      --accent: #3b82f6;
+      --bg: #f0f4f8;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #1a202c;
+      --muted: #718096;
+      --success: #276749;
+      --success-bg: #f0fff4;
+      --error: #c53030;
+      --error-bg: #fff5f5;
+      --radius: 12px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    header {
+      width: 100%;
+      background: var(--navy);
+      color: white;
+      padding: 18px 32px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    header .logo { font-size: 1.5rem; }
+    header .header-left { flex: 1; }
+    header .header-left h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+    header .header-left p  { font-size: 0.8rem; opacity: 0.7; margin-top: 2px; }
+
+    .usage-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 8px 14px;
+      min-width: 120px;
+    }
+    .usage-pill .usage-count {
+      font-size: 1.3rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .usage-pill .usage-label {
+      font-size: 0.7rem;
+      opacity: 0.7;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .usage-pill .usage-cost {
+      font-size: 0.75rem;
+      opacity: 0.6;
+      margin-top: 1px;
+    }
+
+    /* Logo in header */
+    #header-logo {
+      height: 36px;
+      max-width: 120px;
+      object-fit: contain;
+      display: none;
+    }
+
+    /* Branding card */
+    .logo-dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      color: var(--muted);
+      position: relative;
+    }
+    .logo-dropzone:hover { border-color: var(--accent); background: #eff6ff; }
+    .logo-dropzone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+    .logo-dropzone p { font-size: 0.875rem; }
+    .logo-dropzone small { font-size: 0.75rem; }
+
+    #logo-preview-wrap {
+      display: none;
+      align-items: center;
+      gap: 16px;
+      padding: 14px;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    #logo-preview { max-height: 48px; max-width: 160px; object-fit: contain; border-radius: 4px; }
+    #logo-preview-wrap .remove-logo {
+      margin-left: auto;
+      background: none;
+      border: 1px solid #fca5a5;
+      color: var(--error);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    #logo-preview-wrap .remove-logo:hover { background: #fee2e2; }
+
+    main {
+      width: 100%;
+      max-width: 620px;
+      padding: 40px 16px 60px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .step-badge {
+      background: var(--navy);
+      color: white;
+      border-radius: 50%;
+      width: 22px; height: 22px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Drop zone */
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      color: var(--muted);
+      position: relative;
+    }
+    .dropzone:hover, .dropzone.over {
+      border-color: var(--accent);
+      background: #eff6ff;
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .dropzone .dz-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .dropzone .dz-label { font-size: 0.95rem; font-weight: 500; color: var(--text); }
+    .dropzone .dz-sub { font-size: 0.8rem; margin-top: 4px; }
+    .dropzone .dz-chosen {
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: var(--navy);
+      font-weight: 600;
+      background: #ebf4ff;
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    label.field-label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    select {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: white;
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23718096' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+    }
+    select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.15); }
+
+    .search-wrap { position: relative; margin-bottom: 10px; }
+    .search-wrap input {
+      width: 100%;
+      padding: 9px 14px 9px 36px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+    }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-wrap .search-icon {
+      position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+      color: var(--muted); font-size: 0.9rem; pointer-events: none;
+    }
+
+    button.submit {
+      width: 100%;
+      padding: 14px;
+      background: var(--navy);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    button.submit:hover:not(:disabled) { background: var(--navy-light); }
+    button.submit:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .progress-card {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius);
+      padding: 24px 32px;
+      text-align: center;
+      display: none;
+    }
+    .progress-card .spinner {
+      font-size: 2rem;
+      animation: spin 1.4s linear infinite;
+      display: inline-block;
+      margin-bottom: 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .progress-card p { color: var(--navy); font-size: 0.95rem; font-weight: 500; }
+    .progress-card small { color: var(--muted); font-size: 0.8rem; }
+
+    .result-card {
+      background: var(--success-bg);
+      border: 1px solid #9ae6b4;
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      text-align: center;
+      display: none;
+    }
+    .result-card .check { font-size: 2.5rem; margin-bottom: 10px; }
+    .result-card h3 { color: var(--success); font-size: 1.1rem; margin-bottom: 6px; }
+    .result-card p { color: #2f855a; font-size: 0.875rem; margin-bottom: 18px; }
+    .result-card a {
+      display: inline-block;
+      padding: 12px 28px;
+      background: var(--success);
+      color: white;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.95rem;
+      transition: opacity 0.15s;
+    }
+    .result-card a:hover { opacity: 0.88; }
+    .result-card .again {
+      display: block;
+      margin-top: 12px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .error-card {
+      background: var(--error-bg);
+      border: 1px solid #feb2b2;
+      border-radius: var(--radius);
+      padding: 18px 24px;
+      color: var(--error);
+      font-size: 0.875rem;
+      display: none;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<header>
+  <img id="header-logo" src="/logo" alt="Logo" onerror="this.style.display='none'" />
+  <div class="header-left">
+    <h1>Mortgage Suitability Tool</h1>
+    <p>Turn complex reports into clear, plain-language summaries</p>
+  </div>
+  <div class="usage-pill">
+    <span class="usage-count" id="usage-count">—</span>
+    <span class="usage-label">this month</span>
+    <span class="usage-cost" id="usage-cost"></span>
+  </div>
+</header>
+
+<main>
+
+  <!-- Branding -->
+  <div class="card" id="branding-card">
+    <div class="card-title"><span class="step-badge">1</span> Branding</div>
+
+    <!-- Preview (shown when logo exists) -->
+    <div id="logo-preview-wrap">
+      <img id="logo-preview" src="" alt="Current logo" />
+      <span style="font-size:0.85rem;color:var(--muted)">Current logo</span>
+      <button class="remove-logo" onclick="removeLogo()">Remove</button>
+    </div>
+
+    <!-- Upload zone (shown when no logo) -->
+    <div class="logo-dropzone" id="logo-dropzone">
+      <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="uploadLogo(this)" />
+      <p>📷 Click to upload your logo</p>
+      <small>PNG, JPG, SVG or WebP · max 2 MB</small>
+    </div>
+
+    <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">
+      Your logo will appear in the header and on every generated PDF.
+    </p>
+  </div>
+
+  <!-- Step 1: Upload -->
+  <div class="card" id="upload-card">
+    <div class="card-title"><span class="step-badge">2</span> Upload the suitability report</div>
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="file-input" accept=".pdf,.docx" onchange="onFileChosen(this)" />
+      <div class="dz-icon">📄</div>
+      <div class="dz-label">Click to choose a file, or drag & drop</div>
+      <div class="dz-sub">Accepts PDF or Word (.docx)</div>
+      <div class="dz-chosen hidden" id="chosen-label"></div>
+    </div>
+  </div>
+
+  <!-- Step 2: Language -->
+  <div class="card" id="lang-card">
+    <div class="card-title"><span class="step-badge">3</span> Choose output language</div>
+    <div class="search-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="lang-search" placeholder="Search languages…" oninput="filterLanguages(this.value)" />
+    </div>
+    <label class="field-label" for="language-select">Language</label>
+    <select id="language-select" size="1"></select>
+  </div>
+
+  <!-- Submit -->
+  <button class="submit" id="submit-btn" onclick="submit()">
+    <span>✨</span> Generate Simplified Summary
+  </button>
+
+  <!-- Processing -->
+  <div class="progress-card" id="progress-card">
+    <div class="spinner">⚙️</div>
+    <p>Reading and simplifying your report…</p>
+    <small>This usually takes 15–30 seconds</small>
+  </div>
+
+  <!-- Error -->
+  <div class="error-card" id="error-card"></div>
+
+  <!-- Result -->
+  <div class="result-card" id="result-card">
+    <div class="check">✅</div>
+    <h3>Your summary is ready!</h3>
+    <p>A clear, simplified version of the mortgage report has been created.</p>
+    <a id="download-link" href="#" download>⬇ Download PDF Summary</a>
+    <span class="again" onclick="reset()">Simplify another report</span>
+  </div>
+
+</main>
+
+<script>
+  // ── Logo branding ─────────────────────────────────────────────────────────
+  async function checkLogoExists() {
+    try {
+      const res = await fetch("/logo", { method: "HEAD" });
+      setLogoState(res.ok);
+    } catch { setLogoState(false); }
+  }
+
+  function setLogoState(hasLogo) {
+    const preview = document.getElementById("logo-preview-wrap");
+    const dropzone = document.getElementById("logo-dropzone");
+    const headerLogo = document.getElementById("header-logo");
+
+    if (hasLogo) {
+      const url = "/logo?t=" + Date.now(); // cache-bust
+      document.getElementById("logo-preview").src = url;
+      preview.style.display = "flex";
+      dropzone.style.display = "none";
+      headerLogo.src = url;
+      headerLogo.style.display = "block";
+    } else {
+      preview.style.display = "none";
+      dropzone.style.display = "block";
+      headerLogo.style.display = "none";
+    }
+  }
+
+  async function uploadLogo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append("file", file);
+    try {
+      const res = await fetch("/logo", { method: "POST", body });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+        alert(err.detail || "Upload failed");
+        return;
+      }
+      setLogoState(true);
+    } catch { alert("Could not upload logo."); }
+    input.value = "";
+  }
+
+  async function removeLogo() {
+    await fetch("/logo", { method: "DELETE" });
+    setLogoState(false);
+  }
+
+  checkLogoExists();
+
+  // ── Usage counter ────────────────────────────────────────────────────────
+  async function loadStats() {
+    try {
+      const res = await fetch("/stats");
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById("usage-count").textContent = data.this_month;
+      document.getElementById("usage-cost").textContent = `~$${data.estimated_cost_usd.toFixed(2)} est.`;
+    } catch {}
+  }
+
+  loadStats();
+
+  const LANGUAGES = [
+    "English","Spanish","French","German","Italian","Portuguese",
+    "Polish","Romanian","Dutch","Arabic","Mandarin Chinese","Hindi",
+    "Bengali","Urdu","Punjabi","Turkish","Vietnamese","Tagalog",
+    "Korean","Japanese","Swahili","Somali","Welsh","Greek",
+    "Hungarian","Czech","Slovak","Ukrainian","Russian",
+  ];
+
+  // ── Language dropdown ────────────────────────────────────────────────────
+  function buildLanguageOptions(filter = "") {
+    const sel = document.getElementById("language-select");
+    const current = sel.value;
+    sel.innerHTML = "";
+    const filtered = filter
+      ? LANGUAGES.filter(l => l.toLowerCase().includes(filter.toLowerCase()))
+      : LANGUAGES;
+    filtered.forEach(lang => {
+      const opt = document.createElement("option");
+      opt.value = lang;
+      opt.textContent = lang;
+      if (lang === current) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    // Default to English
+    if (!sel.value && filtered.includes("English")) sel.value = "English";
+  }
+
+  function filterLanguages(val) { buildLanguageOptions(val); }
+
+  // ── Drop zone ────────────────────────────────────────────────────────────
+  function onFileChosen(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const lbl = document.getElementById("chosen-label");
+    lbl.textContent = `📎 ${file.name}`;
+    lbl.classList.remove("hidden");
+  }
+
+  const dz = document.getElementById("dropzone");
+  dz.addEventListener("dragover", e => { e.preventDefault(); dz.classList.add("over"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("over"));
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dz.classList.remove("over");
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      const input = document.getElementById("file-input");
+      input.files = dt.files;
+      onFileChosen(input);
+    }
+  });
+
+  // ── Submit ───────────────────────────────────────────────────────────────
+  async function submit() {
+    const input = document.getElementById("file-input");
+    if (!input.files[0]) {
+      showError("Please upload a file first.");
+      return;
+    }
+
+    const language = document.getElementById("language-select").value || "English";
+
+    // Hide UI, show progress
+    hide("upload-card");
+    hide("lang-card");
+    hide("submit-btn");
+    hide("error-card");
+    hide("result-card");
+    show("progress-card", "flex");
+    document.getElementById("progress-card").style.display = "block";
+
+    const body = new FormData();
+    body.append("file", input.files[0]);
+    body.append("language", language);
+
+    try {
+      const res = await fetch("/simplify", { method: "POST", body });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: "Something went wrong." }));
+        throw new Error(err.detail || "Conversion failed.");
+      }
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const disposition = res.headers.get("content-disposition") || "";
+      const match = disposition.match(/filename="?([^"]+)"?/);
+      const fname = match ? match[1] : "mortgage_summary.pdf";
+
+      document.getElementById("download-link").href = url;
+      document.getElementById("download-link").download = fname;
+
+      hide("progress-card");
+      show("result-card");
+
+      // Auto-trigger download
+      document.getElementById("download-link").click();
+      loadStats(); // refresh counter
+
+    } catch (e) {
+      hide("progress-card");
+      show("upload-card");
+      show("lang-card");
+      show("submit-btn");
+      showError(e.message);
+    }
+  }
+
+  function reset() {
+    hide("result-card");
+    show("upload-card");
+    show("lang-card");
+    show("submit-btn");
+    hide("error-card");
+    document.getElementById("file-input").value = "";
+    document.getElementById("chosen-label").classList.add("hidden");
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-card");
+    el.textContent = "⚠️ " + msg;
+    el.style.display = "block";
+  }
+
+  function show(id) { document.getElementById(id).style.display = "block"; }
+  function hide(id) { document.getElementById(id).style.display = "none"; }
+
+  // Init
+  buildLanguageOptions();
+</script>
+</body>
+</html>
