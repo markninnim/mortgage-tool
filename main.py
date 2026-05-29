@@ -199,8 +199,45 @@ def md_to_rl(text: str) -> str:
     return text.strip()
 
 
-def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
+def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> bytes:  # noqa: C901
     """Render the simplified text into a clean, branded PDF."""
+    a11y = a11y or {}
+
+    # ── Accessibility settings ──────────────────────────────────────────────
+    high_contrast = a11y.get("hc", False)
+    dyslexic      = a11y.get("dyslexic", False)
+    colour_blind  = a11y.get("cb", False)
+    text_size     = a11y.get("size", "normal")   # "normal" | "lg" | "xl"
+
+    size_factor = {"normal": 1.0, "lg": 1.15, "xl": 1.3}.get(text_size, 1.0)
+
+    def fs(base: float) -> float:
+        """Scale font size by accessibility factor."""
+        return round(base * size_factor, 1)
+
+    # Colour palette
+    if high_contrast:
+        col_heading  = colors.black
+        col_body     = colors.black
+        col_muted    = colors.black
+        col_rule     = colors.black
+    elif colour_blind:
+        col_heading  = colors.HexColor("#0072B2")   # CB-safe blue
+        col_body     = colors.HexColor("#111827")
+        col_muted    = colors.HexColor("#555555")
+        col_rule     = colors.HexColor("#0072B2")
+    else:
+        col_heading  = colors.HexColor("#1e3a5f")
+        col_body     = colors.HexColor("#111827")
+        col_muted    = colors.HexColor("#6b7280")
+        col_rule     = colors.HexColor("#1e3a5f")
+
+    # Font — dyslexia mode uses wider Helvetica with extra spacing
+    body_font    = "Helvetica"
+    bold_font    = "Helvetica-Bold"
+    leading_mult = 1.8 if dyslexic else 1.5
+    word_space   = 2 if dyslexic else 0
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -216,50 +253,56 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
     title_style = ParagraphStyle(
         "Title",
         parent=styles["Normal"],
-        fontSize=22,
-        leading=28,
-        textColor=colors.HexColor("#1e3a5f"),
+        fontSize=fs(22),
+        leading=fs(22) * leading_mult,
+        textColor=col_heading,
         spaceAfter=2,
-        fontName="Helvetica-Bold",
+        fontName=bold_font,
         alignment=TA_LEFT,
+        wordSpace=word_space,
     )
     subtitle_style = ParagraphStyle(
         "Subtitle",
         parent=styles["Normal"],
-        fontSize=11,
-        textColor=colors.HexColor("#6b7280"),
+        fontSize=fs(11),
+        leading=fs(11) * leading_mult,
+        textColor=col_muted,
         spaceAfter=4,
-        fontName="Helvetica",
+        fontName=body_font,
         alignment=TA_LEFT,
+        wordSpace=word_space,
     )
     date_style = ParagraphStyle(
         "Date",
         parent=styles["Normal"],
-        fontSize=10,
-        textColor=colors.HexColor("#6b7280"),
+        fontSize=fs(10),
+        leading=fs(10) * leading_mult,
+        textColor=col_muted,
         spaceAfter=12,
-        fontName="Helvetica",
+        fontName=body_font,
         alignment=TA_LEFT,
     )
     heading_style = ParagraphStyle(
         "SectionHeading",
         parent=styles["Normal"],
-        fontSize=13,
-        leading=18,
-        textColor=colors.HexColor("#1e3a5f"),
+        fontSize=fs(13),
+        leading=fs(13) * leading_mult,
+        textColor=col_heading,
         spaceBefore=14,
         spaceAfter=6,
-        fontName="Helvetica-Bold",
+        fontName=bold_font,
         keepWithNext=True,
+        wordSpace=word_space,
     )
     body_style = ParagraphStyle(
         "Body",
         parent=styles["Normal"],
-        fontSize=10,
-        leading=15,
-        textColor=colors.HexColor("#111827"),
+        fontSize=fs(10),
+        leading=fs(10) * leading_mult,
+        textColor=col_body,
         spaceAfter=5,
-        fontName="Helvetica",
+        fontName=body_font,
+        wordSpace=word_space,
     )
     bullet_style = ParagraphStyle(
         "Bullet",
@@ -288,7 +331,7 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
     story.append(Paragraph("Your Mortgage Summary", title_style))
     story.append(Paragraph(f"Simplified for you · {language}", subtitle_style))
     story.append(Paragraph(report_date, date_style))
-    story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#1e3a5f"), spaceAfter=14))
+    story.append(HRFlowable(width="100%", thickness=2, color=col_rule, spaceAfter=14))
 
     # Parse markdown-ish output from Claude
     lines = simplified_text.split("\n")
@@ -326,6 +369,7 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
 async def simplify(
     file: UploadFile = File(...),
     language: str = Form(default="English"),
+    a11y: str = Form(default="{}"),
 ):
     """Upload a mortgage suitability report, get a simplified PDF back."""
     content = await file.read()
@@ -338,8 +382,13 @@ async def simplify(
     if len(report_text.strip()) < 100:
         raise HTTPException(status_code=400, detail="Could not extract enough text from the file. Is it a scanned image PDF? Try a text-based PDF or Word document.")
 
+    try:
+        a11y_prefs = json.loads(a11y)
+    except Exception:
+        a11y_prefs = {}
+
     simplified = simplify_with_claude(report_text, language)
-    pdf_bytes = build_pdf(simplified, language)
+    pdf_bytes = build_pdf(simplified, language, a11y_prefs)
     increment_usage()
 
     safe_lang = language.replace(" ", "_")

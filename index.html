@@ -836,6 +836,7 @@
     const body = new FormData();
     body.append("file", input.files[0]);
     body.append("language", language);
+    body.append("a11y", localStorage.getItem("a11y_prefs") || "{}");
 
     try {
       const res = await fetch("/simplify", { method: "POST", body });
