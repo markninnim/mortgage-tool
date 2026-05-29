@@ -23,7 +23,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, CondPageBreak
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 app = FastAPI(title="Mortgage Report Simplifier")
@@ -436,9 +436,11 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
 
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
+            story.append(CondPageBreak(70 * mm))
             story.append(Paragraph(heading_text, heading_style))
 
         elif stripped.startswith("# "):
+            story.append(CondPageBreak(70 * mm))
             story.append(Paragraph(stripped[2:].strip(), heading_style))
 
         elif stripped.startswith(("- ", "• ", "* ")):

@@ -376,13 +376,31 @@
       display: none;
     }
     .progress-card .spinner {
-      animation: spin 1.4s linear infinite;
       display: inline-block;
-      margin-bottom: 12px;
-      width: 56px;
-      height: 56px;
+      margin-bottom: 20px;
+      width: 100px;
+      height: 84px;
     }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes navFly {
+      0%, 12%  { transform: translate(0px, -110px); opacity: 0; }
+      42%, 68% { transform: translate(0px, 0px); opacity: 1; }
+      88%, 100%{ transform: translate(0px, -110px); opacity: 0; }
+    }
+    @keyframes skyFly {
+      0%, 22%  { transform: translate(-110px, 88px); opacity: 0; }
+      52%, 68% { transform: translate(0px, 0px); opacity: 1; }
+      88%, 100%{ transform: translate(-110px, 88px); opacity: 0; }
+    }
+    @keyframes gldFly {
+      0%, 22%  { transform: translate(110px, 88px); opacity: 0; }
+      52%, 68% { transform: translate(0px, 0px); opacity: 1; }
+      88%, 100%{ transform: translate(110px, 88px); opacity: 0; }
+    }
+    @keyframes lockPulse {
+      0%, 55%  { transform: scale(1); }
+      62%      { transform: scale(1.06); }
+      68%, 100%{ transform: scale(1); }
+    }
     .progress-card p { color: var(--navy); font-size: 0.95rem; font-weight: 500; }
     .progress-card small { color: var(--muted); font-size: 0.8rem; }
 
@@ -551,11 +569,17 @@
 
   <!-- Processing -->
   <div class="progress-card" id="progress-card">
-    <div class="spinner">
-      <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="56" height="56">
-        <polygon points="0,0 100,0 50,50" fill="#1a3a67"/>
-        <polygon points="100,0 100,100 50,50" fill="#fcb034"/>
-        <polygon points="0,100 100,100 50,50" fill="#000000"/>
+    <div class="spinner" style="animation: lockPulse 3.6s ease-in-out infinite;">
+      <svg viewBox="0 0 200 168" style="width:100px; height:84px; overflow:visible; display:block;">
+        <g style="animation: navFly 3.6s cubic-bezier(0.34,1.3,0.64,1) infinite;">
+          <polygon points="100,8 58,80 142,80" fill="#1a3a67"/>
+        </g>
+        <g style="animation: skyFly 3.6s cubic-bezier(0.34,1.3,0.64,1) infinite;">
+          <polygon points="58,82 16,154 100,154" fill="#3aadde"/>
+        </g>
+        <g style="animation: gldFly 3.6s cubic-bezier(0.34,1.3,0.64,1) infinite;">
+          <polygon points="142,82 100,154 184,154" fill="#f9b234"/>
+        </g>
       </svg>
     </div>
     <p>Reading and simplifying your report…</p>
