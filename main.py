@@ -274,10 +274,10 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         # SVG not directly supported by reportlab — skip gracefully
         if ct != "image/svg+xml":
             from reportlab.platypus import Image as RLImage
-            logo_img = RLImage(str(LOGO_PATH), width=40 * mm, height=15 * mm, kind="proportional")
-            logo_img.hAlign = "CENTER"
+            logo_img = RLImage(str(LOGO_PATH), width=70 * mm, height=25 * mm, kind="proportional")
+            logo_img.hAlign = "RIGHT"
             story.append(logo_img)
-            story.append(Spacer(1, 3 * mm))
+            story.append(Spacer(1, 4 * mm))
 
     # Header
     story.append(Paragraph("Your Mortgage Summary", title_style))
