@@ -447,12 +447,14 @@
       const res = await fetch("/logo", { method: "POST", body });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-        alert(err.detail || "Upload failed");
-        return;
+        showError("conv-msg", err.detail || "Logo upload failed.");
       }
-      setLogoState(true);
-    } catch { alert("Could not upload logo."); }
+    } catch {
+      // Swallow network noise — verify the result directly
+    }
     input.value = "";
+    // Always check whether the logo actually landed
+    await checkLogoExists();
   }
 
   async function removeLogo() {
