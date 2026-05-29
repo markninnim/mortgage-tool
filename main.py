@@ -187,14 +187,16 @@ def simplify_with_claude(report_text: str, language: str) -> str:
 
 
 def md_to_rl(text: str) -> str:
-    """Convert **bold** markdown to ReportLab <b> tags safely, and escape stray XML characters."""
-    # Escape ampersands and angle brackets that aren't our own tags
+    """Convert **bold** markdown to ReportLab <b> tags safely, strip emoji and escape XML."""
+    # Strip emoji and symbols that Helvetica can't render (renders as boxes)
+    text = re.sub(r'[^\x00-\x7FÀ-ɏ£€]', '', text)
+    # Escape ampersands
     text = text.replace("&", "&amp;")
-    # Convert **bold** pairs only — use non-greedy match
+    # Convert **bold** pairs — non-greedy
     text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
-    # Strip any leftover lone ** that would break the parser
+    # Strip any leftover lone **
     text = text.replace("**", "")
-    return text
+    return text.strip()
 
 
 def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
@@ -294,6 +296,9 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         if not stripped:
             story.append(Spacer(1, 3 * mm))
             continue
+
+        if re.match(r'^-{2,}$', stripped):
+            continue  # skip markdown horizontal rules
 
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
