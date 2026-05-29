@@ -217,18 +217,27 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         fontSize=22,
         leading=28,
         textColor=colors.HexColor("#1e3a5f"),
-        spaceAfter=4,
+        spaceAfter=2,
         fontName="Helvetica-Bold",
-        alignment=TA_CENTER,
+        alignment=TA_LEFT,
     )
     subtitle_style = ParagraphStyle(
         "Subtitle",
         parent=styles["Normal"],
         fontSize=11,
         textColor=colors.HexColor("#6b7280"),
-        spaceAfter=16,
+        spaceAfter=4,
         fontName="Helvetica",
-        alignment=TA_CENTER,
+        alignment=TA_LEFT,
+    )
+    date_style = ParagraphStyle(
+        "Date",
+        parent=styles["Normal"],
+        fontSize=10,
+        textColor=colors.HexColor("#6b7280"),
+        spaceAfter=12,
+        fontName="Helvetica",
+        alignment=TA_LEFT,
     )
     heading_style = ParagraphStyle(
         "SectionHeading",
@@ -254,15 +263,7 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         parent=body_style,
         leftIndent=14,
         bulletIndent=4,
-        spaceAfter=4,
-    )
-    footer_style = ParagraphStyle(
-        "Footer",
-        parent=styles["Normal"],
-        fontSize=8,
-        textColor=colors.HexColor("#9ca3af"),
-        alignment=TA_CENTER,
-        fontName="Helvetica",
+        spaceAfter=1,
     )
 
     story = []
@@ -280,8 +281,10 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
             story.append(Spacer(1, 4 * mm))
 
     # Header
+    report_date = datetime.utcnow().strftime("%d %B %Y")
     story.append(Paragraph("Your Mortgage Summary", title_style))
     story.append(Paragraph(f"Simplified for you · {language}", subtitle_style))
+    story.append(Paragraph(report_date, date_style))
     story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor("#1e3a5f"), spaceAfter=14))
 
     # Parse markdown-ish output from Claude
@@ -295,7 +298,6 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
             story.append(Paragraph(heading_text, heading_style))
-            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb"), spaceAfter=4))
 
         elif stripped.startswith("# "):
             story.append(Paragraph(stripped[2:].strip(), heading_style))
@@ -306,15 +308,6 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
 
         else:
             story.append(Paragraph(md_to_rl(stripped), body_style))
-
-    # Footer
-    story.append(Spacer(1, 8 * mm))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb"), spaceAfter=6))
-    story.append(Paragraph(
-        "This simplified summary is for informational purposes only and does not constitute financial advice. "
-        "Please refer to your full Mortgage Suitability Report for complete details.",
-        footer_style,
-    ))
 
     doc.build(story)
     buf.seek(0)
