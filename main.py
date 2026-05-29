@@ -7,6 +7,7 @@ import io
 import os
 import re
 import json
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -24,6 +25,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, HRFlowable, CondPageBreak
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 app = FastAPI(title="Mortgage Report Simplifier")
@@ -41,6 +44,85 @@ LOGO_PATH = Path("logo")          # stored without extension; we keep the origin
 LOGO_META_FILE = Path("logo_meta.json")
 LOGO_COLORS_FILE = Path("logo_colors.json")
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp"}
+
+FONTS_DIR = Path("fonts")
+
+# Script families — languages grouped by the font they need
+DEVANAGARI_LANGS = {"Hindi", "Nepali"}
+ARABIC_LANGS     = {"Arabic", "Urdu"}
+BENGALI_LANGS    = {"Bengali"}
+GURMUKHI_LANGS   = {"Punjabi"}
+CJK_LANGS        = {"Mandarin Chinese", "Korean", "Japanese"}
+
+# Noto font download URLs (Google Fonts GitHub)
+_NOTO_BASE = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf"
+NOTO_FONT_URLS = {
+    "devanagari": (
+        f"{_NOTO_BASE}/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
+        f"{_NOTO_BASE}/NotoSansDevanagari/NotoSansDevanagari-Bold.ttf",
+        "NotoDevanagari", "NotoDevanagari-Bold",
+    ),
+    "arabic": (
+        f"{_NOTO_BASE}/NotoSansArabic/NotoSansArabic-Regular.ttf",
+        f"{_NOTO_BASE}/NotoSansArabic/NotoSansArabic-Bold.ttf",
+        "NotoArabic", "NotoArabic-Bold",
+    ),
+    "bengali": (
+        f"{_NOTO_BASE}/NotoSansBengali/NotoSansBengali-Regular.ttf",
+        f"{_NOTO_BASE}/NotoSansBengali/NotoSansBengali-Bold.ttf",
+        "NotoBengali", "NotoBengali-Bold",
+    ),
+    "gurmukhi": (
+        f"{_NOTO_BASE}/NotoSansGurmukhi/NotoSansGurmukhi-Regular.ttf",
+        f"{_NOTO_BASE}/NotoSansGurmukhi/NotoSansGurmukhi-Bold.ttf",
+        "NotoGurmukhi", "NotoGurmukhi-Bold",
+    ),
+}
+
+# Characters that represent emoji / unrenderable symbols (keep this narrow)
+_EMOJI_RE = re.compile(
+    r"[\U0001F300-\U0001F9FF\U0001FA00-\U0001FAFF"
+    r"\U00002600-\U000027BF\U0000FE00-\U0000FE0F]+"
+)
+
+
+def _script_family(language: str) -> str | None:
+    if language in DEVANAGARI_LANGS: return "devanagari"
+    if language in ARABIC_LANGS:     return "arabic"
+    if language in BENGALI_LANGS:    return "bengali"
+    if language in GURMUKHI_LANGS:   return "gurmukhi"
+    return None
+
+
+def ensure_noto_font(language: str) -> tuple[str, str]:
+    """
+    Return (body_font, bold_font) names for the given language.
+    Downloads and registers a Noto font if needed.
+    Falls back to Helvetica on any error.
+    """
+    family = _script_family(language)
+    if family is None or family not in NOTO_FONT_URLS:
+        return "Helvetica", "Helvetica-Bold"
+
+    url_reg, url_bold, name_reg, name_bold = NOTO_FONT_URLS[family]
+
+    # Already registered this session?
+    if name_reg in pdfmetrics._fonts:
+        return name_reg, name_bold
+
+    try:
+        FONTS_DIR.mkdir(exist_ok=True)
+        path_reg  = FONTS_DIR / f"{name_reg}.ttf"
+        path_bold = FONTS_DIR / f"{name_bold}.ttf"
+        if not path_reg.exists():
+            urllib.request.urlretrieve(url_reg,  str(path_reg))
+        if not path_bold.exists():
+            urllib.request.urlretrieve(url_bold, str(path_bold))
+        pdfmetrics.registerFont(TTFont(name_reg,  str(path_reg)))
+        pdfmetrics.registerFont(TTFont(name_bold, str(path_bold)))
+        return name_reg, name_bold
+    except Exception:
+        return "Helvetica", "Helvetica-Bold"
 
 
 # ── Logo helpers ──────────────────────────────────────────────────────────────
@@ -272,10 +354,14 @@ def simplify_with_claude(report_text: str, language: str) -> str:
     return message.content[0].text
 
 
-def md_to_rl(text: str) -> str:
+def md_to_rl(text: str, latin_only: bool = True) -> str:
     """Convert **bold** markdown to ReportLab <b> tags safely, strip emoji and escape XML."""
-    # Strip emoji and symbols that Helvetica can't render (renders as boxes)
-    text = re.sub(r'[^\x00-\x7FÀ-ɏ£€]', '', text)
+    if latin_only:
+        # Strip anything outside basic Latin + Latin Extended (Helvetica limitation)
+        text = re.sub(r'[^\x00-\x7FÀ-ɏ£€]', '', text)
+    else:
+        # Non-Latin font in use — only strip emoji/symbols that no font renders cleanly
+        text = _EMOJI_RE.sub('', text)
     # Escape ampersands
     text = text.replace("&", "&amp;")
     # Convert **bold** pairs — non-greedy
@@ -322,9 +408,9 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
         col_muted    = colors.HexColor("#6b7280")
         col_rule     = colors.HexColor(brand_primary)
 
-    # Font — dyslexia mode uses wider Helvetica with extra spacing
-    body_font    = "Helvetica"
-    bold_font    = "Helvetica-Bold"
+    # Font — resolve per language, dyslexia mode adds extra spacing
+    body_font, bold_font = ensure_noto_font(language)
+    latin_only   = _script_family(language) is None
     leading_mult = 1.8 if dyslexic else 1.5
     word_space   = 2 if dyslexic else 0
 
@@ -444,11 +530,11 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
             story.append(Paragraph(stripped[2:].strip(), heading_style))
 
         elif stripped.startswith(("- ", "• ", "* ")):
-            bullet_text = md_to_rl(stripped[2:].strip())
+            bullet_text = md_to_rl(stripped[2:].strip(), latin_only=latin_only)
             story.append(Paragraph(f"• {bullet_text}", bullet_style))
 
         else:
-            story.append(Paragraph(md_to_rl(stripped), body_style))
+            story.append(Paragraph(md_to_rl(stripped, latin_only=latin_only), body_style))
 
     doc.build(story)
     buf.seek(0)
