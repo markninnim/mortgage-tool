@@ -103,14 +103,21 @@
 
     #logo-preview-wrap {
       display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    #logo-preview-inner {
+      display: flex;
       align-items: center;
       gap: 16px;
       padding: 14px;
-      background: var(--bg);
+      background: var(--success-bg);
       border-radius: 8px;
-      border: 1px solid var(--border);
+      border: 1px solid #9ae6b4;
     }
     #logo-preview { max-height: 48px; max-width: 160px; object-fit: contain; border-radius: 4px; }
+    .logo-success-msg { font-size: 0.85rem; color: var(--success); font-weight: 600; }
+    .logo-success-sub { font-size: 0.78rem; color: #2f855a; margin-top: 2px; }
     #logo-preview-wrap .remove-logo {
       margin-left: auto;
       background: none;
@@ -120,8 +127,16 @@
       padding: 5px 12px;
       font-size: 0.8rem;
       cursor: pointer;
+      white-space: nowrap;
     }
     #logo-preview-wrap .remove-logo:hover { background: #fee2e2; }
+    #logo-uploading {
+      display: none;
+      text-align: center;
+      padding: 16px;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
 
     main {
       width: 100%;
@@ -342,23 +357,27 @@
   <div class="card" id="branding-card">
     <div class="card-title"><span class="step-badge">1</span> Branding</div>
 
+    <!-- Uploading state -->
+    <div id="logo-uploading">⏳ Uploading logo…</div>
+
     <!-- Preview (shown when logo exists) -->
     <div id="logo-preview-wrap">
-      <img id="logo-preview" src="" alt="Current logo" />
-      <span style="font-size:0.85rem;color:var(--muted)">Current logo</span>
-      <button class="remove-logo" onclick="removeLogo()">Remove</button>
+      <div id="logo-preview-inner">
+        <img id="logo-preview" src="" alt="Current logo" />
+        <div>
+          <div class="logo-success-msg">✅ Logo uploaded</div>
+          <div class="logo-success-sub">Your logo will appear on every generated report.</div>
+        </div>
+        <button class="remove-logo" onclick="removeLogo()">Remove</button>
+      </div>
     </div>
 
     <!-- Upload zone (shown when no logo) -->
     <div class="logo-dropzone" id="logo-dropzone">
       <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="uploadLogo(this)" />
-      <p>📷 Click to upload your logo</p>
+      <p>Click to upload your logo</p>
       <small>PNG, JPG, SVG or WebP · max 2 MB</small>
     </div>
-
-    <p style="font-size:0.78rem;color:var(--muted);margin-top:10px;">
-      Your logo will appear in the header and on every generated PDF.
-    </p>
   </div>
 
   <!-- Step 1: Upload -->
@@ -437,20 +456,31 @@
   async function uploadLogo(input) {
     const file = input.files[0];
     if (!file) return;
+
+    // Show uploading state
+    hide("logo-dropzone");
+    hide("logo-preview-wrap");
+    document.getElementById("logo-uploading").style.display = "block";
+
     const body = new FormData();
     body.append("file", file);
+    let success = false;
     try {
       const res = await fetch("/logo", { method: "POST", body });
+      success = res.ok;
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Upload failed" }));
-        showError("conv-msg", err.detail || "Logo upload failed.");
+        alert(err.detail || "Logo upload failed.");
       }
     } catch {
-      // Swallow network noise — verify the result directly
+      // Network hiccup — check if it landed anyway
+      const check = await fetch("/logo", { method: "HEAD" }).catch(() => null);
+      success = check && check.ok;
     }
+
+    document.getElementById("logo-uploading").style.display = "none";
     input.value = "";
-    // Always check whether the logo actually landed
-    await checkLogoExists();
+    setLogoState(success);
   }
 
   async function removeLogo() {
