@@ -5,6 +5,7 @@ Run: uvicorn main:app --reload
 
 import io
 import os
+import re
 import json
 from datetime import datetime
 from pathlib import Path
@@ -185,6 +186,17 @@ def simplify_with_claude(report_text: str, language: str) -> str:
     return message.content[0].text
 
 
+def md_to_rl(text: str) -> str:
+    """Convert **bold** markdown to ReportLab <b> tags safely, and escape stray XML characters."""
+    # Escape ampersands and angle brackets that aren't our own tags
+    text = text.replace("&", "&amp;")
+    # Convert **bold** pairs only — use non-greedy match
+    text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+    # Strip any leftover lone ** that would break the parser
+    text = text.replace("**", "")
+    return text
+
+
 def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
     """Render the simplified text into a clean, branded PDF."""
     buf = io.BytesIO()
@@ -289,19 +301,11 @@ def build_pdf(simplified_text: str, language: str) -> bytes:  # noqa: C901
             story.append(Paragraph(stripped[2:].strip(), heading_style))
 
         elif stripped.startswith(("- ", "• ", "* ")):
-            bullet_text = stripped[2:].strip()
-            # Convert any **bold** markers for reportlab
-            bullet_text = bullet_text.replace("**", "<b>", 1)
-            while "**" in bullet_text:
-                bullet_text = bullet_text.replace("**", "</b>", 1)
+            bullet_text = md_to_rl(stripped[2:].strip())
             story.append(Paragraph(f"• {bullet_text}", bullet_style))
 
         else:
-            # Regular paragraph — handle inline bold
-            text = stripped.replace("**", "<b>", 1)
-            while "**" in text:
-                text = text.replace("**", "</b>", 1)
-            story.append(Paragraph(text, body_style))
+            story.append(Paragraph(md_to_rl(stripped), body_style))
 
     # Footer
     story.append(Spacer(1, 8 * mm))
