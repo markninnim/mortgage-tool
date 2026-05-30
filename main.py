@@ -310,6 +310,11 @@ NEXT_STEP_OPTIONS = [
         "uses_adviser": False,
     },
     {
+        "id": "meeting",
+        "template": "Arrange a meeting with {adviser_name} to discuss how this new mortgage impacts your current life assurance and income protection requirements.",
+        "uses_adviser": True,
+    },
+    {
         "id": "will",
         "template": "Update your will as your circumstances are changing.",
         "uses_adviser": False,
