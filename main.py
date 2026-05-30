@@ -349,7 +349,7 @@ You will be given a mortgage suitability report. Your job is to produce a simpli
 
 On the very first two lines of your response write exactly these (no other text on those lines):
 ADVISER: [Full name of the mortgage adviser or broker from the report. Write "your adviser" if not found.]
-SUMMARY: {"lender":"[lender name]","type":"[mortgage type, e.g. 5-year fixed rate]","rate":"[initial interest rate, e.g. 4.89%]","monthly":"[initial monthly payment, e.g. 1245]","amount":"[mortgage amount, e.g. 245000]","term":"[full term, e.g. 25 years]"}
+SUMMARY: {{"lender":"[lender name]","type":"[mortgage type, e.g. 5-year fixed rate]","rate":"[initial interest rate, e.g. 4.89%]","monthly":"[initial monthly payment, e.g. 1245]","amount":"[mortgage amount, e.g. 245000]","term":"[full term, e.g. 25 years]"}}
 
 Then on the next line start the sections.
 
