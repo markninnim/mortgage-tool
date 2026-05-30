@@ -562,6 +562,31 @@
     <button onclick="resetA11y()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;font-size:0.85rem;color:var(--muted);">Reset to defaults</button>
   </div>
 
+  <!-- Step 5: Additional Pages -->
+  <div class="card" id="pages-card">
+    <div class="card-title"><span class="step-badge">5</span> Additional pages <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Upload a PDF (e.g. a protection brochure) to append to every generated report.</p>
+
+    <div id="pages-uploading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:0.875rem;">⏳ Uploading…</div>
+
+    <div id="pages-preview-wrap" style="display:none;flex-direction:column;gap:10px;">
+      <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--success-bg);border-radius:8px;border:1px solid #9ae6b4;">
+        <div style="font-size:1.6rem;">📄</div>
+        <div>
+          <div style="font-size:0.85rem;color:var(--success);font-weight:600;" id="pages-success-msg">Pages uploaded</div>
+          <div style="font-size:0.78rem;color:#2f855a;margin-top:2px;" id="pages-success-sub"></div>
+        </div>
+        <button onclick="removePages()" style="margin-left:auto;background:none;border:1px solid #fca5a5;color:var(--error);border-radius:6px;padding:5px 12px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">Remove</button>
+      </div>
+    </div>
+
+    <div class="logo-dropzone" id="pages-dropzone">
+      <input type="file" id="pages-input" accept="application/pdf" onchange="uploadPages(this)" />
+      <p>Click to upload a PDF</p>
+      <small>PDF only · max 20 MB</small>
+    </div>
+  </div>
+
   <!-- Submit -->
   <button class="submit" id="submit-btn" onclick="submit()">
     Generate Suitability Report
@@ -718,6 +743,66 @@
 
   checkLogoExists();
 
+  // ── Extra pages ───────────────────────────────────────────────────────────
+  async function checkPagesExist() {
+    try {
+      const res = await fetch("/pages/meta");
+      if (res.ok) {
+        const meta = await res.json();
+        setPagesState(true, meta);
+      } else {
+        setPagesState(false);
+      }
+    } catch { setPagesState(false); }
+  }
+
+  function setPagesState(hasPages, meta) {
+    const preview = document.getElementById("pages-preview-wrap");
+    const dropzone = document.getElementById("pages-dropzone");
+    if (hasPages && meta) {
+      document.getElementById("pages-success-msg").textContent = `✅ ${meta.filename || "Pages uploaded"}`;
+      document.getElementById("pages-success-sub").textContent = `${meta.pages} page${meta.pages !== 1 ? "s" : ""} will be appended to every report.`;
+      preview.style.display = "flex";
+      dropzone.style.display = "none";
+    } else {
+      preview.style.display = "none";
+      dropzone.style.display = "block";
+    }
+  }
+
+  async function uploadPages(input) {
+    const file = input.files[0];
+    if (!file) return;
+    hide("pages-dropzone");
+    hide("pages-preview-wrap");
+    document.getElementById("pages-uploading").style.display = "block";
+    const body = new FormData();
+    body.append("file", file);
+    let meta = null;
+    try {
+      const res = await fetch("/pages", { method: "POST", body });
+      if (res.ok) {
+        meta = await res.json();
+      } else {
+        const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+        alert(err.detail || "Upload failed.");
+      }
+    } catch {
+      const check = await fetch("/pages/meta").catch(() => null);
+      if (check && check.ok) meta = await check.json();
+    }
+    document.getElementById("pages-uploading").style.display = "none";
+    input.value = "";
+    setPagesState(!!meta, meta);
+  }
+
+  async function removePages() {
+    await fetch("/pages", { method: "DELETE" });
+    setPagesState(false);
+  }
+
+  checkPagesExist();
+
   // ── Usage counter ────────────────────────────────────────────────────────
   async function loadStats() {
     try {
@@ -799,6 +884,7 @@
     hide("upload-card");
     hide("lang-card");
     hide("a11y-card");
+    hide("pages-card");
     hide("submit-btn");
     hide("error-card");
     hide("result-card");
@@ -839,6 +925,7 @@
       show("upload-card");
       show("lang-card");
       show("a11y-card");
+      show("pages-card");
       show("submit-btn");
       showError(e.message);
     }
@@ -849,6 +936,7 @@
     show("upload-card");
     show("lang-card");
     show("a11y-card");
+    show("pages-card");
     show("submit-btn");
     hide("error-card");
     document.getElementById("file-input").value = "";

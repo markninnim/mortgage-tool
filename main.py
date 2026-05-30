@@ -45,6 +45,9 @@ LOGO_META_FILE = Path("logo_meta.json")
 LOGO_COLORS_FILE = Path("logo_colors.json")
 ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/svg+xml", "image/webp"}
 
+EXTRA_PAGES_PATH = Path("extra_pages.pdf")
+EXTRA_PAGES_META_FILE = Path("extra_pages_meta.json")
+
 FONTS_DIR = Path("fonts")
 
 # Script families — languages grouped by the font they need
@@ -223,6 +226,35 @@ def load_logo_colors() -> dict:
     if LOGO_COLORS_FILE.exists():
         return json.loads(LOGO_COLORS_FILE.read_text())
     return {}
+
+
+# ── Extra pages helpers ───────────────────────────────────────────────────────
+
+def save_extra_pages(data: bytes, filename: str, page_count: int):
+    EXTRA_PAGES_PATH.write_bytes(data)
+    EXTRA_PAGES_META_FILE.write_text(json.dumps({"filename": filename, "pages": page_count}))
+
+def delete_extra_pages():
+    if EXTRA_PAGES_PATH.exists():
+        EXTRA_PAGES_PATH.unlink()
+    if EXTRA_PAGES_META_FILE.exists():
+        EXTRA_PAGES_META_FILE.unlink()
+
+def extra_pages_meta() -> dict | None:
+    if EXTRA_PAGES_META_FILE.exists():
+        return json.loads(EXTRA_PAGES_META_FILE.read_text())
+    return None
+
+def merge_pdfs(main_bytes: bytes, extra_bytes: bytes) -> bytes:
+    """Append extra_bytes pages onto main_bytes and return merged PDF."""
+    from pypdf import PdfWriter
+    writer = PdfWriter()
+    writer.append(io.BytesIO(main_bytes))
+    writer.append(io.BytesIO(extra_bytes))
+    buf = io.BytesIO()
+    writer.write(buf)
+    buf.seek(0)
+    return buf.read()
 
 
 COST_PER_REPORT = 0.02  # estimated USD mid-point
@@ -567,6 +599,11 @@ async def simplify(
 
     simplified = simplify_with_claude(report_text, language)
     pdf_bytes = build_pdf(simplified, language, a11y_prefs)
+
+    # Append extra pages if uploaded
+    if EXTRA_PAGES_PATH.exists():
+        pdf_bytes = merge_pdfs(pdf_bytes, EXTRA_PAGES_PATH.read_bytes())
+
     increment_usage()
 
     safe_lang = language.replace(" ", "_")
@@ -607,6 +644,39 @@ def get_logo():
 def remove_logo():
     """Remove the current logo."""
     delete_logo()
+    return {"status": "removed"}
+
+
+@app.post("/pages")
+async def upload_extra_pages(file: UploadFile = File(...)):
+    """Upload a PDF to append to every generated report."""
+    if not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    data = await file.read()
+    if len(data) > 20 * 1024 * 1024:  # 20 MB limit
+        raise HTTPException(status_code=400, detail="File must be under 20 MB.")
+    try:
+        reader = PdfReader(io.BytesIO(data))
+        page_count = len(reader.pages)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read the PDF. Please check the file is valid.")
+    save_extra_pages(data, file.filename, page_count)
+    return {"status": "ok", "pages": page_count, "filename": file.filename}
+
+
+@app.get("/pages/meta")
+def get_extra_pages_meta():
+    """Return metadata about the uploaded extra pages."""
+    meta = extra_pages_meta()
+    if not meta:
+        raise HTTPException(status_code=404, detail="No extra pages uploaded.")
+    return meta
+
+
+@app.delete("/pages")
+def remove_extra_pages():
+    """Remove the uploaded extra pages."""
+    delete_extra_pages()
     return {"status": "removed"}
 
 
