@@ -352,22 +352,35 @@ Then on the next line start the sections.
 
 The summary should:
 - Use simple, everyday language (no jargon)
-- Highlight the KEY FACTS about the recommended mortgage (rate, term, monthly payment, lender, type)
-- Summarise the CLIENT'S PREFERENCES and circumstances that led to this recommendation
-- Explain WHY this mortgage was recommended in 2-3 plain sentences
-- Flag any important risks or things the client should be aware of
 - Be warm, reassuring, and easy to read
+- Avoid anything that sounds like a legal document
+- Use bullet points where helpful, but short prose is fine too
 
-Structure your response with these exact section headings (use markdown ## for headings):
-## Your Mortgage at a Glance
-## About You & Your Situation
-## Why This Mortgage Was Recommended
+Structure your response with these EXACT section headings (use markdown ## for headings):
+
+## Your New Mortgage — The Facts
+A short, plain-English overview: lender name, mortgage type (e.g. fixed rate, tracker), and what it means for the client in one or two sentences.
+
+## About You
+A brief summary of the client's circumstances, needs, and preferences that shaped this recommendation (e.g. first-time buyer, remortgage, income, dependants, priorities).
+
+## Why We Chose This Lender for You
+2–3 sentences explaining specifically why this lender and product were selected — criteria met, flexibility, rate competitiveness, any unique features.
+
+## The Numbers
+Key financial figures in bullet points: property value, mortgage amount, loan-to-value (LTV), deposit, and total amount repayable over the full term.
+
+## The Initial Scheme
+Details of the initial deal period only: the interest rate, type (fixed/tracker/discount), how long it lasts, and the monthly payment during this period.
+
+## The Overall Term
+The full mortgage term length, what happens after the initial scheme ends (e.g. reverts to SVR), and the monthly payment on the standard rate if known.
+
 ## Key Things to Know
-## Next Steps
+Important conditions, risks, or caveats: early repayment charges, portability, overpayment allowances, anything the client must not overlook.
 
-For the Next Steps section, write only: [NEXT_STEPS_PLACEHOLDER]
-
-Keep each section concise — bullet points are fine. Avoid anything that sounds like a legal document.
+## What Happens Next
+Write only: [NEXT_STEPS_PLACEHOLDER]
 
 {language_instruction}
 
@@ -627,8 +640,8 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
 
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
-            # Skip Claude's Next Steps heading when we're supplying our own
-            if heading_text == "Next Steps" and custom_next_steps is not None:
+            # Skip Claude's final heading when we're supplying our own next steps
+            if heading_text == "What Happens Next" and custom_next_steps is not None:
                 continue
             story.append(CondPageBreak(70 * mm))
             story.append(Paragraph(heading_text, heading_style))
@@ -647,7 +660,7 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
     # Append custom next steps if provided
     if custom_next_steps:
         story.append(CondPageBreak(70 * mm))
-        story.append(Paragraph("Next Steps", heading_style))
+        story.append(Paragraph("What Happens Next", heading_style))
         for step in custom_next_steps:
             story.append(Paragraph(f"• {md_to_rl(step, latin_only=latin_only)}", bullet_style))
 
