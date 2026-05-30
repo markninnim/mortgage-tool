@@ -298,8 +298,8 @@ def get_stats() -> dict:
 NEXT_STEP_OPTIONS = [
     {
         "id": "confirm",
-        "template": "Please make sure the contents of this report match your understanding and ask {adviser_name} if you have any questions.",
-        "uses_adviser": True,
+        "template": "Please make sure the contents of this report match your understanding and get in touch with me if you have any questions.",
+        "uses_adviser": False,
     },
     {
         "id": "illustration",
@@ -313,8 +313,8 @@ NEXT_STEP_OPTIONS = [
     },
     {
         "id": "meeting",
-        "template": "Arrange a meeting with {adviser_name} to discuss how this new mortgage impacts your current life assurance and income protection requirements.",
-        "uses_adviser": True,
+        "template": "Please arrange a meeting with me to discuss how this new mortgage impacts your current life assurance and income protection requirements.",
+        "uses_adviser": False,
     },
     {
         "id": "will",
@@ -501,7 +501,7 @@ def md_to_rl(text: str, latin_only: bool = True) -> str:
     return text.strip()
 
 
-def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, custom_next_steps: list | None = None) -> bytes:  # noqa: C901
+def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, custom_next_steps: list | None = None, adviser_name: str = "") -> bytes:  # noqa: C901
     """Render the simplified text into a clean, branded PDF."""
     a11y = a11y or {}
 
@@ -689,6 +689,16 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
         "look forward to supporting you through this process.",
         body_style
     ))
+    story.append(Spacer(1, 6 * mm))
+    if adviser_name and adviser_name.lower() != "your adviser":
+        story.append(Paragraph(md_to_rl(adviser_name, latin_only=latin_only), body_style))
+    story.append(Paragraph("Mortgage & Protection Adviser", ParagraphStyle(
+        "AdviserRole",
+        parent=body_style,
+        textColor=col_muted,
+        fontSize=fs(9),
+        leading=fs(9) * leading_mult,
+    )))
 
     doc.build(story)
     buf.seek(0)
@@ -732,7 +742,7 @@ async def simplify(
     simplified_words = len(simplified.split())
 
     custom_steps = build_next_steps(selected_ids, adviser_name, custom_note) if selected_ids or custom_note.strip() else None
-    pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps)
+    pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps, adviser_name=adviser_name)
 
     # Append extra pages if uploaded
     if EXTRA_PAGES_PATH.exists():
