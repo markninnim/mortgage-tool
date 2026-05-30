@@ -354,7 +354,7 @@ The summary should:
 - Use simple, everyday language (no jargon)
 - Be warm, reassuring, and easy to read
 - Avoid anything that sounds like a legal document
-- Use bullet points where helpful, but short prose is fine too
+- Write in short, clear sentences and paragraphs — do NOT use bullet points anywhere
 
 Structure your response with these EXACT section headings (use markdown ## for headings):
 
@@ -651,8 +651,8 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
             story.append(Paragraph(stripped[2:].strip(), heading_style))
 
         elif stripped.startswith(("- ", "• ", "* ")):
-            bullet_text = md_to_rl(stripped[2:].strip(), latin_only=latin_only)
-            story.append(Paragraph(f"• {bullet_text}", bullet_style))
+            # Render as plain body paragraph (no bullet point)
+            story.append(Paragraph(md_to_rl(stripped[2:].strip(), latin_only=latin_only), body_style))
 
         else:
             story.append(Paragraph(md_to_rl(stripped, latin_only=latin_only), body_style))
@@ -662,7 +662,7 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
         story.append(CondPageBreak(70 * mm))
         story.append(Paragraph("What Happens Next", heading_style))
         for step in custom_next_steps:
-            story.append(Paragraph(f"• {md_to_rl(step, latin_only=latin_only)}", bullet_style))
+            story.append(Paragraph(md_to_rl(step, latin_only=latin_only), body_style))
 
     doc.build(story)
     buf.seek(0)
