@@ -355,6 +355,7 @@ The summary should:
 - Be warm, reassuring, and easy to read
 - Avoid anything that sounds like a legal document
 - Write in short, clear sentences and paragraphs — do NOT use bullet points anywhere
+- Use **bold** (double asterisks) to highlight key facts and figures, e.g. **Halifax**, **4.89%**, **£1,245 per month**, **25 years**
 
 Structure your response with these EXACT section headings (use markdown ## for headings):
 
