@@ -291,15 +291,67 @@ def get_stats() -> dict:
         "history": {k: v for k, v in sorted(data.items())},
     }
 
+# ── Next step options ─────────────────────────────────────────────────────────
+
+NEXT_STEP_OPTIONS = [
+    {
+        "id": "confirm",
+        "template": "Please make sure the contents of this report match your understanding and ask {adviser_name} if you have any questions.",
+        "uses_adviser": True,
+    },
+    {
+        "id": "illustration",
+        "template": "Read the mortgage illustration that came with this report for more information.",
+        "uses_adviser": False,
+    },
+    {
+        "id": "insurance",
+        "template": "Arrange buildings and contents insurance.",
+        "uses_adviser": False,
+    },
+    {
+        "id": "will",
+        "template": "Update your will as your circumstances are changing.",
+        "uses_adviser": False,
+    },
+    {
+        "id": "protection",
+        "template": "Please read the attached information about protecting your income.",
+        "uses_adviser": False,
+    },
+]
+
+
+def build_next_steps(selected_ids: list, adviser_name: str, custom_note: str = "") -> list:
+    """Return list of plain-text next step strings from selected option IDs."""
+    steps = []
+    for opt in NEXT_STEP_OPTIONS:
+        if opt["id"] in selected_ids:
+            text = opt["template"]
+            if opt.get("uses_adviser"):
+                text = text.format(adviser_name=adviser_name or "your adviser")
+            steps.append(text)
+    if custom_note.strip():
+        steps.append(custom_note.strip())
+    return steps
+
+
 SIMPLIFY_PROMPT = """You are an expert at making complex mortgage suitability reports easy to understand for everyday people.
 
-You will be given a mortgage suitability report. Your job is to produce a simplified, plain-English summary that:
-- Uses simple, everyday language (no jargon)
-- Highlights the KEY FACTS about the recommended mortgage (rate, term, monthly payment, lender, type)
-- Summarises the CLIENT'S PREFERENCES and circumstances that led to this recommendation
-- Explains WHY this mortgage was recommended in 2-3 plain sentences
-- Flags any important risks or things the client should be aware of
-- Is warm, reassuring, and easy to read
+You will be given a mortgage suitability report. Your job is to produce a simplified, plain-English summary.
+
+First, on the very first line of your response write exactly this (replace with the actual name found in the report):
+ADVISER: [Full name of the mortgage adviser or broker from the report. Write "your adviser" if not found.]
+
+Then on the next line start the sections.
+
+The summary should:
+- Use simple, everyday language (no jargon)
+- Highlight the KEY FACTS about the recommended mortgage (rate, term, monthly payment, lender, type)
+- Summarise the CLIENT'S PREFERENCES and circumstances that led to this recommendation
+- Explain WHY this mortgage was recommended in 2-3 plain sentences
+- Flag any important risks or things the client should be aware of
+- Be warm, reassuring, and easy to read
 
 Structure your response with these exact section headings (use markdown ## for headings):
 ## Your Mortgage at a Glance
@@ -307,6 +359,8 @@ Structure your response with these exact section headings (use markdown ## for h
 ## Why This Mortgage Was Recommended
 ## Key Things to Know
 ## Next Steps
+
+For the Next Steps section, write only: [NEXT_STEPS_PLACEHOLDER]
 
 Keep each section concise — bullet points are fine. Avoid anything that sounds like a legal document.
 
@@ -366,8 +420,10 @@ def extract_text_from_file(file_bytes: bytes, filename: str) -> str:
         raise ValueError("Unsupported file type. Please upload a PDF or .docx file.")
 
 
-def simplify_with_claude(report_text: str, language: str) -> str:
-    """Call Claude API to produce a simplified summary."""
+def simplify_with_claude(report_text: str, language: str) -> tuple[str, str]:
+    """Call Claude API to produce a simplified summary.
+    Returns (simplified_text, adviser_name).
+    """
     if not ANTHROPIC_API_KEY:
         raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set. Add it to your .env file.")
 
@@ -383,7 +439,16 @@ def simplify_with_claude(report_text: str, language: str) -> str:
         max_tokens=2048,
         messages=[{"role": "user", "content": prompt}],
     )
-    return message.content[0].text
+    raw = message.content[0].text
+
+    # Extract ADVISER: line from the first line
+    adviser_name = "your adviser"
+    lines = raw.splitlines()
+    if lines and lines[0].startswith("ADVISER:"):
+        adviser_name = lines[0][len("ADVISER:"):].strip() or "your adviser"
+        raw = "\n".join(lines[1:]).lstrip("\n")
+
+    return raw, adviser_name
 
 
 def md_to_rl(text: str, latin_only: bool = True) -> str:
@@ -403,7 +468,7 @@ def md_to_rl(text: str, latin_only: bool = True) -> str:
     return text.strip()
 
 
-def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> bytes:  # noqa: C901
+def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, custom_next_steps: list | None = None) -> bytes:  # noqa: C901
     """Render the simplified text into a clean, branded PDF."""
     a11y = a11y or {}
 
@@ -552,6 +617,9 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
         if re.match(r'^-{2,}$', stripped):
             continue  # skip markdown horizontal rules
 
+        if "[NEXT_STEPS_PLACEHOLDER]" in stripped:
+            continue  # will be replaced by custom next steps below
+
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
             story.append(CondPageBreak(70 * mm))
@@ -568,6 +636,13 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None) -> 
         else:
             story.append(Paragraph(md_to_rl(stripped, latin_only=latin_only), body_style))
 
+    # Append custom next steps if provided
+    if custom_next_steps:
+        story.append(CondPageBreak(70 * mm))
+        story.append(Paragraph("Next Steps", heading_style))
+        for step in custom_next_steps:
+            story.append(Paragraph(f"• {md_to_rl(step, latin_only=latin_only)}", bullet_style))
+
     doc.build(story)
     buf.seek(0)
     return buf.read()
@@ -580,6 +655,8 @@ async def simplify(
     file: UploadFile = File(...),
     language: str = Form(default="English"),
     a11y: str = Form(default="{}"),
+    next_steps: str = Form(default="[]"),
+    custom_note: str = Form(default=""),
 ):
     """Upload a mortgage suitability report, get a simplified PDF back."""
     content = await file.read()
@@ -597,8 +674,14 @@ async def simplify(
     except Exception:
         a11y_prefs = {}
 
-    simplified = simplify_with_claude(report_text, language)
-    pdf_bytes = build_pdf(simplified, language, a11y_prefs)
+    try:
+        selected_ids = json.loads(next_steps)
+    except Exception:
+        selected_ids = []
+
+    simplified, adviser_name = simplify_with_claude(report_text, language)
+    custom_steps = build_next_steps(selected_ids, adviser_name, custom_note) if selected_ids or custom_note.strip() else None
+    pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps)
 
     # Append extra pages if uploaded
     if EXTRA_PAGES_PATH.exists():

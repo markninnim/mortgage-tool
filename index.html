@@ -447,6 +447,25 @@
     }
 
     .hidden { display: none !important; }
+
+    /* Next step items */
+    .ns-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      user-select: none;
+    }
+    .ns-item:hover { border-color: var(--navy); background: #f8faff; }
+    .ns-item.selected { border-color: var(--navy); background: #eff6ff; }
+    .ns-item input[type=checkbox] { margin-top: 3px; flex-shrink: 0; accent-color: var(--navy); width: 16px; height: 16px; cursor: pointer; }
+    .ns-item label { font-size: 0.875rem; color: var(--text); cursor: pointer; line-height: 1.5; }
+    .ns-item label em { font-style: normal; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -587,6 +606,38 @@
     </div>
   </div>
 
+  <!-- Step 6: Next Steps -->
+  <div class="card" id="nextsteps-card">
+    <div class="card-title"><span class="step-badge">6</span> Next steps <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
+    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Select the steps relevant to this client. These will appear in the Next Steps section of the report.</p>
+
+    <div id="ns-confirm" class="ns-item" onclick="toggleStep(this)">
+      <input type="checkbox" data-id="confirm">
+      <label>Please make sure the contents of this report match your understanding and ask <em>[adviser name from report]</em> if you have any questions.</label>
+    </div>
+    <div id="ns-illustration" class="ns-item" onclick="toggleStep(this)">
+      <input type="checkbox" data-id="illustration">
+      <label>Read the mortgage illustration that came with this report for more information.</label>
+    </div>
+    <div id="ns-insurance" class="ns-item" onclick="toggleStep(this)">
+      <input type="checkbox" data-id="insurance">
+      <label>Arrange buildings and contents insurance.</label>
+    </div>
+    <div id="ns-will" class="ns-item" onclick="toggleStep(this)">
+      <input type="checkbox" data-id="will">
+      <label>Update your will as your circumstances are changing.</label>
+    </div>
+    <div id="ns-protection" class="ns-item" onclick="toggleStep(this)">
+      <input type="checkbox" data-id="protection">
+      <label>Please read the attached information about protecting your income.</label>
+    </div>
+
+    <div style="margin-top:16px;">
+      <label class="field-label" for="ns-custom">Additional note</label>
+      <textarea id="ns-custom" placeholder="Add anything specific to this client, e.g. 'Your next appointment is on 12 June at 10am.'" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.875rem;font-family:inherit;resize:vertical;min-height:72px;color:var(--text);outline:none;"></textarea>
+    </div>
+  </div>
+
   <!-- Submit -->
   <button class="submit" id="submit-btn" onclick="submit()">
     Generate Suitability Report
@@ -682,6 +733,17 @@
     if (p.size)     setTextSize(p.size);
     else            document.getElementById("sz-normal").classList.add("active");
   })();
+
+  // ── Next steps selector ───────────────────────────────────────────────────
+  function toggleStep(el) {
+    el.classList.toggle("selected");
+    el.querySelector("input").checked = el.classList.contains("selected");
+  }
+
+  function getSelectedStepIds() {
+    return Array.from(document.querySelectorAll(".ns-item.selected input"))
+      .map(cb => cb.dataset.id);
+  }
 
   // ── Logo branding ─────────────────────────────────────────────────────────
   async function checkLogoExists() {
@@ -885,6 +947,7 @@
     hide("lang-card");
     hide("a11y-card");
     hide("pages-card");
+    hide("nextsteps-card");
     hide("submit-btn");
     hide("error-card");
     hide("result-card");
@@ -895,6 +958,8 @@
     body.append("file", input.files[0]);
     body.append("language", language);
     body.append("a11y", localStorage.getItem("a11y_prefs") || "{}");
+    body.append("next_steps", JSON.stringify(getSelectedStepIds()));
+    body.append("custom_note", document.getElementById("ns-custom").value || "");
 
     try {
       const res = await fetch("/simplify", { method: "POST", body });
@@ -926,6 +991,7 @@
       show("lang-card");
       show("a11y-card");
       show("pages-card");
+      show("nextsteps-card");
       show("submit-btn");
       showError(e.message);
     }
@@ -937,6 +1003,7 @@
     show("lang-card");
     show("a11y-card");
     show("pages-card");
+    show("nextsteps-card");
     show("submit-btn");
     hide("error-card");
     document.getElementById("file-input").value = "";
