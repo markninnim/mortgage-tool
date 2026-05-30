@@ -58,10 +58,18 @@ ARABIC_LANGS     = {"Arabic", "Urdu"}
 BENGALI_LANGS    = {"Bengali"}
 GURMUKHI_LANGS   = {"Punjabi"}
 CJK_LANGS        = {"Mandarin Chinese", "Korean", "Japanese"}
+# Languages with Latin Extended characters (ș ț ă etc.) that Helvetica can't render
+LATIN_EXT_LANGS  = {"Romanian", "Polish", "Czech", "Slovak", "Hungarian", "Ukrainian",
+                     "Vietnamese", "Turkish"}
 
 # Noto font download URLs (Google Fonts GitHub)
 _NOTO_BASE = "https://github.com/googlefonts/noto-fonts/raw/main/hinted/ttf"
 NOTO_FONT_URLS = {
+    "latin_ext": (
+        f"{_NOTO_BASE}/NotoSans/NotoSans-Regular.ttf",
+        f"{_NOTO_BASE}/NotoSans/NotoSans-Bold.ttf",
+        "NotoSans", "NotoSans-Bold",
+    ),
     "devanagari": (
         f"{_NOTO_BASE}/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
         f"{_NOTO_BASE}/NotoSansDevanagari/NotoSansDevanagari-Bold.ttf",
@@ -92,6 +100,7 @@ _EMOJI_RE = re.compile(
 
 
 def _script_family(language: str) -> str | None:
+    if language in LATIN_EXT_LANGS:  return "latin_ext"
     if language in DEVANAGARI_LANGS: return "devanagari"
     if language in ARABIC_LANGS:     return "arabic"
     if language in BENGALI_LANGS:    return "bengali"
