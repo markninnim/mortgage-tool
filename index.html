@@ -239,11 +239,21 @@
 
     main {
       width: 100%;
-      max-width: 620px;
-      padding: 40px 16px 60px;
+      max-width: 1040px;
+      padding: 36px 24px 60px;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .col-left, .col-right {
       display: flex;
       flex-direction: column;
-      gap: 24px;
+      gap: 20px;
     }
 
     .card {
@@ -490,158 +500,149 @@
 
 <main>
 
-  <!-- Branding -->
-  <div class="card" id="branding-card">
-    <div class="card-title"><span class="step-badge">1</span> Branding</div>
+  <div class="main-grid" id="main-grid">
 
-    <!-- Uploading state -->
-    <div id="logo-uploading">⏳ Uploading logo…</div>
+    <!-- ── Left column ── -->
+    <div class="col-left">
 
-    <!-- Preview (shown when logo exists) -->
-    <div id="logo-preview-wrap">
-      <div id="logo-preview-inner">
-        <img id="logo-preview" src="" alt="Current logo" />
-        <div>
-          <div class="logo-success-msg">✅ Logo uploaded</div>
-          <div class="logo-success-sub">Your logo will appear on every generated report.</div>
+      <!-- 1: Branding -->
+      <div class="card" id="branding-card">
+        <div class="card-title"><span class="step-badge">1</span> Branding</div>
+        <div id="logo-uploading">⏳ Uploading logo…</div>
+        <div id="logo-preview-wrap">
+          <div id="logo-preview-inner">
+            <img id="logo-preview" src="" alt="Current logo" />
+            <div>
+              <div class="logo-success-msg">✅ Logo uploaded</div>
+              <div class="logo-success-sub">Your logo will appear on every generated report.</div>
+            </div>
+            <button class="remove-logo" onclick="removeLogo()">Remove</button>
+          </div>
         </div>
-        <button class="remove-logo" onclick="removeLogo()">Remove</button>
-      </div>
-    </div>
-
-    <!-- Upload zone (shown when no logo) -->
-    <div class="logo-dropzone" id="logo-dropzone">
-      <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="uploadLogo(this)" />
-      <p>Click to upload your logo</p>
-      <small>PNG, JPG, SVG or WebP · max 2 MB</small>
-    </div>
-  </div>
-
-  <!-- Step 1: Upload -->
-  <div class="card" id="upload-card">
-    <div class="card-title"><span class="step-badge">2</span> Upload the suitability report</div>
-    <div class="dropzone" id="dropzone">
-      <input type="file" id="file-input" accept=".pdf,.docx" onchange="onFileChosen(this)" />
-      <div class="dz-icon">📄</div>
-      <div class="dz-label">Click to choose a file, or drag & drop</div>
-      <div class="dz-sub">Accepts PDF or Word (.docx)</div>
-      <div class="dz-chosen hidden" id="chosen-label"></div>
-    </div>
-  </div>
-
-  <!-- Step 2: Language -->
-  <div class="card" id="lang-card">
-    <div class="card-title"><span class="step-badge">3</span> Choose output language</div>
-    <div class="search-wrap">
-      <span class="search-icon">🔍</span>
-      <input type="text" id="lang-search" placeholder="Search languages…" oninput="filterLanguages(this.value)" />
-    </div>
-    <label class="field-label" for="language-select">Language</label>
-    <select id="language-select" size="1"></select>
-  </div>
-
-  <!-- Step 4: Accessibility -->
-  <div class="card" id="a11y-card">
-    <div class="card-title"><span class="step-badge">4</span> Accessibility</div>
-
-    <div class="a11y-section">
-      <div class="a11y-label">Text size</div>
-      <div class="a11y-size-btns">
-        <button id="sz-normal" onclick="setTextSize('normal')">Normal</button>
-        <button id="sz-lg" onclick="setTextSize('lg')">Large</button>
-        <button id="sz-xl" onclick="setTextSize('xl')">Extra large</button>
-      </div>
-    </div>
-
-    <div class="a11y-section">
-      <div class="a11y-label">Display</div>
-      <div class="a11y-toggle-row">
-        <span>High contrast</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-hc" onchange="applyA11y()">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="a11y-toggle-row">
-        <span>Dyslexia-friendly font</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-dyslexic" onchange="applyA11y()">
-          <span class="slider"></span>
-        </label>
-      </div>
-      <div class="a11y-toggle-row">
-        <span>Colour blind mode</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="toggle-cb" onchange="applyA11y()">
-          <span class="slider"></span>
-        </label>
-      </div>
-    </div>
-
-    <button onclick="resetA11y()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;font-size:0.85rem;color:var(--muted);">Reset to defaults</button>
-  </div>
-
-  <!-- Step 5: Additional Pages -->
-  <div class="card" id="pages-card">
-    <div class="card-title"><span class="step-badge">5</span> Additional pages <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
-    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Upload a PDF (e.g. a protection brochure) to append to every generated report.</p>
-
-    <div id="pages-uploading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:0.875rem;">⏳ Uploading…</div>
-
-    <div id="pages-preview-wrap" style="display:none;flex-direction:column;gap:10px;">
-      <div style="display:flex;align-items:center;gap:16px;padding:14px;background:var(--success-bg);border-radius:8px;border:1px solid #9ae6b4;">
-        <div style="font-size:1.6rem;">📄</div>
-        <div>
-          <div style="font-size:0.85rem;color:var(--success);font-weight:600;" id="pages-success-msg">Pages uploaded</div>
-          <div style="font-size:0.78rem;color:#2f855a;margin-top:2px;" id="pages-success-sub"></div>
+        <div class="logo-dropzone" id="logo-dropzone">
+          <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" onchange="uploadLogo(this)" />
+          <p>Click to upload your logo</p>
+          <small>PNG, JPG, SVG or WebP · max 2 MB</small>
         </div>
-        <button onclick="removePages()" style="margin-left:auto;background:none;border:1px solid #fca5a5;color:var(--error);border-radius:6px;padding:5px 12px;font-size:0.8rem;cursor:pointer;white-space:nowrap;">Remove</button>
       </div>
-    </div>
 
-    <div class="logo-dropzone" id="pages-dropzone">
-      <input type="file" id="pages-input" accept="application/pdf" onchange="uploadPages(this)" />
-      <p>Click to upload a PDF</p>
-      <small>PDF only · max 20 MB</small>
-    </div>
-  </div>
+      <!-- 2: Upload report -->
+      <div class="card" id="upload-card">
+        <div class="card-title"><span class="step-badge">2</span> Upload the suitability report</div>
+        <div class="dropzone" id="dropzone">
+          <input type="file" id="file-input" accept=".pdf,.docx" onchange="onFileChosen(this)" />
+          <div class="dz-icon">📄</div>
+          <div class="dz-label">Click to choose a file, or drag & drop</div>
+          <div class="dz-sub">Accepts PDF or Word (.docx)</div>
+          <div class="dz-chosen hidden" id="chosen-label"></div>
+        </div>
+      </div>
 
-  <!-- Step 6: Next Steps -->
-  <div class="card" id="nextsteps-card">
-    <div class="card-title"><span class="step-badge">6</span> Next steps <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
-    <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Select the steps relevant to this client. These will appear in the Next Steps section of the report.</p>
+      <!-- 3: Next Steps -->
+      <div class="card" id="nextsteps-card">
+        <div class="card-title"><span class="step-badge">3</span> Next steps <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Select the steps relevant to this client. These will appear in the Next Steps section of the report.</p>
+        <div id="ns-confirm" class="ns-item" onclick="toggleStep(this)">
+          <input type="checkbox" data-id="confirm">
+          <label>Please make sure the contents of this report match your understanding and ask <em>[adviser name from report]</em> if you have any questions.</label>
+        </div>
+        <div id="ns-illustration" class="ns-item" onclick="toggleStep(this)">
+          <input type="checkbox" data-id="illustration">
+          <label>Read the mortgage illustration that came with this report for more information.</label>
+        </div>
+        <div id="ns-insurance" class="ns-item" onclick="toggleStep(this)">
+          <input type="checkbox" data-id="insurance">
+          <label>Arrange buildings and contents insurance.</label>
+        </div>
+        <div id="ns-will" class="ns-item" onclick="toggleStep(this)">
+          <input type="checkbox" data-id="will">
+          <label>Update your will as your circumstances are changing.</label>
+        </div>
+        <div id="ns-protection" class="ns-item" onclick="toggleStep(this)">
+          <input type="checkbox" data-id="protection">
+          <label>Please read the attached information about protecting your income.</label>
+        </div>
+        <div style="margin-top:16px;">
+          <label class="field-label" for="ns-custom">Additional note</label>
+          <textarea id="ns-custom" placeholder="Add anything specific to this client, e.g. 'Your next appointment is on 12 June at 10am.'" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.875rem;font-family:inherit;resize:vertical;min-height:72px;color:var(--text);outline:none;"></textarea>
+        </div>
+      </div>
 
-    <div id="ns-confirm" class="ns-item" onclick="toggleStep(this)">
-      <input type="checkbox" data-id="confirm">
-      <label>Please make sure the contents of this report match your understanding and ask <em>[adviser name from report]</em> if you have any questions.</label>
-    </div>
-    <div id="ns-illustration" class="ns-item" onclick="toggleStep(this)">
-      <input type="checkbox" data-id="illustration">
-      <label>Read the mortgage illustration that came with this report for more information.</label>
-    </div>
-    <div id="ns-insurance" class="ns-item" onclick="toggleStep(this)">
-      <input type="checkbox" data-id="insurance">
-      <label>Arrange buildings and contents insurance.</label>
-    </div>
-    <div id="ns-will" class="ns-item" onclick="toggleStep(this)">
-      <input type="checkbox" data-id="will">
-      <label>Update your will as your circumstances are changing.</label>
-    </div>
-    <div id="ns-protection" class="ns-item" onclick="toggleStep(this)">
-      <input type="checkbox" data-id="protection">
-      <label>Please read the attached information about protecting your income.</label>
-    </div>
+    </div><!-- /col-left -->
 
-    <div style="margin-top:16px;">
-      <label class="field-label" for="ns-custom">Additional note</label>
-      <textarea id="ns-custom" placeholder="Add anything specific to this client, e.g. 'Your next appointment is on 12 June at 10am.'" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:0.875rem;font-family:inherit;resize:vertical;min-height:72px;color:var(--text);outline:none;"></textarea>
-    </div>
-  </div>
+    <!-- ── Right column ── -->
+    <div class="col-right">
 
-  <!-- Submit -->
-  <button class="submit" id="submit-btn" onclick="submit()">
-    Generate Suitability Report
-  </button>
+      <!-- 4: Additional Pages -->
+      <div class="card" id="pages-card">
+        <div class="card-title"><span class="step-badge">4</span> Additional pages <span style="font-size:0.78rem;font-weight:400;color:var(--muted);margin-left:6px;">Optional</span></div>
+        <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">Upload a PDF to append to every generated report.</p>
+        <div id="pages-uploading" style="display:none;text-align:center;padding:16px;color:var(--muted);font-size:0.875rem;">⏳ Uploading…</div>
+        <div id="pages-preview-wrap" style="display:none;flex-direction:column;gap:10px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--success-bg);border-radius:8px;border:1px solid #9ae6b4;">
+            <div style="font-size:1.4rem;">📄</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.85rem;color:var(--success);font-weight:600;" id="pages-success-msg">Pages uploaded</div>
+              <div style="font-size:0.78rem;color:#2f855a;margin-top:2px;" id="pages-success-sub"></div>
+            </div>
+            <button onclick="removePages()" style="background:none;border:1px solid #fca5a5;color:var(--error);border-radius:6px;padding:5px 10px;font-size:0.78rem;cursor:pointer;white-space:nowrap;">Remove</button>
+          </div>
+        </div>
+        <div class="logo-dropzone" id="pages-dropzone">
+          <input type="file" id="pages-input" accept="application/pdf" onchange="uploadPages(this)" />
+          <p>Click to upload a PDF</p>
+          <small>PDF only · max 20 MB</small>
+        </div>
+      </div>
+
+      <!-- 5: Accessibility -->
+      <div class="card" id="a11y-card">
+        <div class="card-title"><span class="step-badge">5</span> Accessibility</div>
+        <div class="a11y-section">
+          <div class="a11y-label">Text size</div>
+          <div class="a11y-size-btns">
+            <button id="sz-normal" onclick="setTextSize('normal')">Normal</button>
+            <button id="sz-lg" onclick="setTextSize('lg')">Large</button>
+            <button id="sz-xl" onclick="setTextSize('xl')">Extra large</button>
+          </div>
+        </div>
+        <div class="a11y-section">
+          <div class="a11y-label">Display</div>
+          <div class="a11y-toggle-row">
+            <span>High contrast</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-hc" onchange="applyA11y()"><span class="slider"></span></label>
+          </div>
+          <div class="a11y-toggle-row">
+            <span>Dyslexia-friendly font</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-dyslexic" onchange="applyA11y()"><span class="slider"></span></label>
+          </div>
+          <div class="a11y-toggle-row">
+            <span>Colour blind mode</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-cb" onchange="applyA11y()"><span class="slider"></span></label>
+          </div>
+        </div>
+        <button onclick="resetA11y()" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:7px;background:none;cursor:pointer;font-size:0.85rem;color:var(--muted);">Reset to defaults</button>
+      </div>
+
+      <!-- 6: Language -->
+      <div class="card" id="lang-card">
+        <div class="card-title"><span class="step-badge">6</span> Language</div>
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="lang-search" placeholder="Search languages…" oninput="filterLanguages(this.value)" />
+        </div>
+        <label class="field-label" for="language-select">Language</label>
+        <select id="language-select" size="1"></select>
+      </div>
+
+      <!-- Generate -->
+      <button class="submit" id="submit-btn" onclick="submit()">
+        Generate Suitability Report
+      </button>
+
+    </div><!-- /col-right -->
+
+  </div><!-- /main-grid -->
 
   <!-- Processing -->
   <div class="progress-card" id="progress-card">
@@ -942,16 +943,10 @@
 
     const language = document.getElementById("language-select").value || "English";
 
-    // Hide UI, show progress
-    hide("upload-card");
-    hide("lang-card");
-    hide("a11y-card");
-    hide("pages-card");
-    hide("nextsteps-card");
-    hide("submit-btn");
+    // Hide grid, show progress
+    hide("main-grid");
     hide("error-card");
     hide("result-card");
-    show("progress-card", "flex");
     document.getElementById("progress-card").style.display = "block";
 
     const body = new FormData();
@@ -987,25 +982,15 @@
 
     } catch (e) {
       hide("progress-card");
-      show("upload-card");
-      show("lang-card");
-      show("a11y-card");
-      show("pages-card");
-      show("nextsteps-card");
-      show("submit-btn");
+      show("main-grid");
       showError(e.message);
     }
   }
 
   function reset() {
     hide("result-card");
-    show("upload-card");
-    show("lang-card");
-    show("a11y-card");
-    show("pages-card");
-    show("nextsteps-card");
-    show("submit-btn");
     hide("error-card");
+    show("main-grid");
     document.getElementById("file-input").value = "";
     document.getElementById("chosen-label").classList.add("hidden");
   }
@@ -1016,7 +1001,10 @@
     el.style.display = "block";
   }
 
-  function show(id) { document.getElementById(id).style.display = "block"; }
+  function show(id) {
+    const el = document.getElementById(id);
+    el.style.display = el.id === "main-grid" ? "grid" : "block";
+  }
   function hide(id) { document.getElementById(id).style.display = "none"; }
 
   // Init
