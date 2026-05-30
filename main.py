@@ -7,6 +7,7 @@ import io
 import os
 import re
 import json
+import base64
 import urllib.request
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +37,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Report-Summary"],
 )
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
@@ -345,8 +347,9 @@ SIMPLIFY_PROMPT = """You are an expert at making complex mortgage suitability re
 
 You will be given a mortgage suitability report. Your job is to produce a simplified, plain-English summary.
 
-First, on the very first line of your response write exactly this (replace with the actual name found in the report):
+On the very first two lines of your response write exactly these (no other text on those lines):
 ADVISER: [Full name of the mortgage adviser or broker from the report. Write "your adviser" if not found.]
+SUMMARY: {"lender":"[lender name]","type":"[mortgage type, e.g. 5-year fixed rate]","rate":"[initial interest rate, e.g. 4.89%]","monthly":"[initial monthly payment, e.g. 1245]","amount":"[mortgage amount, e.g. 245000]","term":"[full term, e.g. 25 years]"}
 
 Then on the next line start the sections.
 
@@ -460,14 +463,25 @@ def simplify_with_claude(report_text: str, language: str) -> tuple[str, str]:
     )
     raw = message.content[0].text
 
-    # Extract ADVISER: line from the first line
     adviser_name = "your adviser"
+    key_facts: dict = {}
     lines = raw.splitlines()
+
+    # Line 1: ADVISER:
     if lines and lines[0].startswith("ADVISER:"):
         adviser_name = lines[0][len("ADVISER:"):].strip() or "your adviser"
-        raw = "\n".join(lines[1:]).lstrip("\n")
+        lines = lines[1:]
 
-    return raw, adviser_name
+    # Line 2: SUMMARY:
+    if lines and lines[0].startswith("SUMMARY:"):
+        try:
+            key_facts = json.loads(lines[0][len("SUMMARY:"):].strip())
+        except Exception:
+            pass
+        lines = lines[1:]
+
+    raw = "\n".join(lines).lstrip("\n")
+    return raw, adviser_name, key_facts
 
 
 def md_to_rl(text: str, latin_only: bool = True) -> str:
@@ -701,7 +715,11 @@ async def simplify(
     except Exception:
         selected_ids = []
 
-    simplified, adviser_name = simplify_with_claude(report_text, language)
+    original_words = len(report_text.split())
+
+    simplified, adviser_name, key_facts = simplify_with_claude(report_text, language)
+    simplified_words = len(simplified.split())
+
     custom_steps = build_next_steps(selected_ids, adviser_name, custom_note) if selected_ids or custom_note.strip() else None
     pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps)
 
@@ -711,13 +729,38 @@ async def simplify(
 
     increment_usage()
 
+    # Build accessibility description
+    a11y_items = []
+    if a11y_prefs.get("hc"):       a11y_items.append("High contrast")
+    if a11y_prefs.get("dyslexic"): a11y_items.append("Dyslexia-friendly font")
+    if a11y_prefs.get("cb"):       a11y_items.append("Colour blind mode")
+    size = a11y_prefs.get("size", "normal")
+    if size == "lg":  a11y_items.append("Large text")
+    if size == "xl":  a11y_items.append("Extra large text")
+
+    reduction = round((1 - simplified_words / original_words) * 100) if original_words else 0
+
+    report_summary = {
+        "original_words": original_words,
+        "simplified_words": simplified_words,
+        "reduction_pct": reduction,
+        "language": language,
+        "adviser": adviser_name,
+        "accessibility": a11y_items,
+        "extra_pages": EXTRA_PAGES_PATH.exists(),
+        **key_facts,
+    }
+
     safe_lang = language.replace(" ", "_")
     out_name = f"mortgage_summary_{safe_lang}.pdf"
 
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{out_name}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{out_name}"',
+            "X-Report-Summary": base64.b64encode(json.dumps(report_summary).encode()).decode(),
+        },
     )
 
 

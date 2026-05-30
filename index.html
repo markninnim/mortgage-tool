@@ -674,8 +674,20 @@
   <div class="result-card" id="result-card">
     <div class="check">✅</div>
     <h3>Your summary is ready!</h3>
-    <p>A clear, simplified version of the mortgage report has been created.</p>
-    <a id="download-link" href="#" download>⬇ Download Suitability Report</a>
+    <a id="download-link" href="#" download style="margin-bottom:24px;">⬇ Download Suitability Report</a>
+
+    <!-- What we did -->
+    <div id="report-summary" style="display:none;width:100%;text-align:left;background:#fff;border:1px solid #9ae6b4;border-radius:10px;padding:20px 24px;margin-bottom:16px;">
+      <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#2f855a;margin-bottom:14px;">What we did with this report</div>
+
+      <div id="summary-facts" style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:16px;"></div>
+
+      <div style="border-top:1px solid #c6f6d5;padding-top:14px;margin-top:4px;">
+        <div style="font-size:0.78rem;font-weight:600;color:#276749;margin-bottom:6px;">Enhancements applied</div>
+        <div id="summary-enhancements" style="font-size:0.82rem;color:#2f855a;"></div>
+      </div>
+    </div>
+
     <span class="again" onclick="reset()">Simplify another report</span>
   </div>
 
@@ -981,6 +993,15 @@
       document.getElementById("download-link").href = url;
       document.getElementById("download-link").download = fname;
 
+      // Parse and display report summary
+      try {
+        const raw = res.headers.get("X-Report-Summary");
+        if (raw) {
+          const s = JSON.parse(atob(raw));
+          renderSummary(s);
+        }
+      } catch {}
+
       hide("progress-card");
       show("result-card");
 
@@ -995,9 +1016,43 @@
     }
   }
 
+  function renderSummary(s) {
+    const fmt = (n) => n ? n.toLocaleString() : "—";
+    const facts = [
+      ["Original report", `${fmt(s.original_words)} words`],
+      ["Simplified to", `${fmt(s.simplified_words)} words`],
+      ["Words removed", `${s.reduction_pct}% reduction`],
+      ["Language", s.language || "English"],
+      ["Adviser", s.adviser || "—"],
+      s.lender   ? ["Lender", s.lender]   : null,
+      s.type     ? ["Mortgage type", s.type] : null,
+      s.rate     ? ["Initial rate", s.rate]  : null,
+      s.monthly  ? ["Monthly payment", `£${Number(s.monthly).toLocaleString()}`] : null,
+      s.term     ? ["Full term", s.term]     : null,
+    ].filter(Boolean);
+
+    const grid = document.getElementById("summary-facts");
+    grid.innerHTML = facts.map(([label, val]) =>
+      `<div><div style="font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:#2f855a;">${label}</div>
+       <div style="font-size:0.9rem;font-weight:600;color:#1a202c;margin-top:2px;">${val}</div></div>`
+    ).join("");
+
+    const enhancements = [];
+    enhancements.push("Plain-English rewrite — complex jargon removed");
+    if (s.language && s.language !== "English") enhancements.push(`Translated to ${s.language}`);
+    if (s.accessibility && s.accessibility.length) enhancements.push(`Accessibility: ${s.accessibility.join(", ")}`);
+    if (s.extra_pages) enhancements.push("Protection brochure appended");
+
+    document.getElementById("summary-enhancements").innerHTML =
+      enhancements.map(e => `✓ ${e}`).join("<br>");
+
+    document.getElementById("report-summary").style.display = "block";
+  }
+
   function reset() {
     hide("result-card");
     hide("error-card");
+    document.getElementById("report-summary").style.display = "none";
     show("main-grid");
     document.getElementById("file-input").value = "";
     document.getElementById("chosen-label").classList.add("hidden");
