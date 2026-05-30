@@ -635,7 +635,7 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
     # Header
     report_date = datetime.utcnow().strftime("%d %B %Y")
     story.append(Paragraph("Your Mortgage Summary", title_style))
-    story.append(Paragraph(f"Simplified for you · {language}", subtitle_style))
+    story.append(Paragraph(language, subtitle_style))
     story.append(Paragraph(report_date, date_style))
     story.append(HRFlowable(width="100%", thickness=2, color=col_rule, spaceAfter=14))
 
@@ -678,6 +678,17 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
         story.append(Paragraph("What Happens Next", heading_style))
         for step in custom_next_steps:
             story.append(Paragraph(md_to_rl(step, latin_only=latin_only), body_style))
+
+    # Thank you footer
+    story.append(Spacer(1, 10 * mm))
+    story.append(HRFlowable(width="100%", thickness=1, color=col_rule, spaceAfter=10))
+    story.append(Paragraph("Thank You", heading_style))
+    story.append(Paragraph(
+        "Thank you for allowing me to help you with your mortgage. "
+        "I will be progressing your application through until completion and "
+        "look forward to supporting you through this process.",
+        body_style
+    ))
 
     doc.build(story)
     buf.seek(0)
