@@ -658,11 +658,11 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
             # Skip Claude's final heading when we're supplying our own next steps
             if heading_text == "What Happens Next" and custom_next_steps is not None:
                 continue
-            story.append(CondPageBreak(70 * mm))
+            story.append(CondPageBreak(45 * mm))
             story.append(Paragraph(heading_text, heading_style))
 
         elif stripped.startswith("# "):
-            story.append(CondPageBreak(70 * mm))
+            story.append(CondPageBreak(45 * mm))
             story.append(Paragraph(stripped[2:].strip(), heading_style))
 
         elif stripped.startswith(("- ", "• ", "* ")):
@@ -674,7 +674,7 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
 
     # Append custom next steps if provided
     if custom_next_steps:
-        story.append(CondPageBreak(70 * mm))
+        story.append(CondPageBreak(45 * mm))
         story.append(Paragraph("What Happens Next", heading_style))
         for step in custom_next_steps:
             story.append(Paragraph(md_to_rl(step, latin_only=latin_only), body_style))
