@@ -622,6 +622,9 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
 
         if stripped.startswith("## "):
             heading_text = stripped[3:].strip()
+            # Skip Claude's Next Steps heading when we're supplying our own
+            if heading_text == "Next Steps" and custom_next_steps is not None:
+                continue
             story.append(CondPageBreak(70 * mm))
             story.append(Paragraph(heading_text, heading_style))
 
