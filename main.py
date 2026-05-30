@@ -352,6 +352,39 @@ def build_next_steps(selected_ids: list, adviser_name: str, custom_note: str = "
     return steps
 
 
+RISK_PROMPT = """You are a UK mortgage compliance expert reviewing a suitability report on behalf of an FCA-regulated firm.
+
+Analyse the report below and identify gaps, risks, or areas a compliance officer or regulator might question.
+
+Return ONLY a valid JSON object — no other text, no markdown fences — in exactly this structure:
+{{"overall":"green|amber|red","issues":[{{"severity":"red|amber|green","area":"Area name","title":"Short issue title","description":"1-2 sentence description of the gap or risk","suggestion":"Specific action the adviser should take or note to add"}}]}}
+
+Severity guide:
+- red: Significant regulatory risk or missing mandatory element
+- amber: Should be addressed; could be questioned on review
+- green: Minor observation or best practice improvement
+
+Check specifically for:
+- FCA MCOB suitability requirements met
+- Protection / life assurance needs considered or declined recorded
+- Affordability stress-tested (rate rises, income changes)
+- Client vulnerability assessed
+- Source of deposit evidenced
+- Early repayment charges explained
+- Interest rate risk explained to client
+- Alternative products considered and reasons for rejection noted
+- Recommendation clearly justified against client needs
+- Client circumstances fully captured
+
+Maximum 8 issues. Be concise and actionable.
+
+Report:
+---
+{report_text}
+---
+"""
+
+
 SIMPLIFY_PROMPT = """You are an expert at making complex mortgage suitability reports easy to understand for everyday people.
 
 You will be given a mortgage suitability report. Your job is to produce a simplified, plain-English summary.
@@ -510,7 +543,7 @@ def md_to_rl(text: str, latin_only: bool = True) -> str:
     return text.strip()
 
 
-def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, custom_next_steps: list | None = None, adviser_name: str = "") -> bytes:  # noqa: C901
+def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, custom_next_steps: list | None = None, adviser_name: str = "", risk_notes: list | None = None) -> bytes:  # noqa: C901
     """Render the simplified text into a clean, branded PDF."""
     a11y = a11y or {}
 
@@ -688,6 +721,39 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
         for step in custom_next_steps:
             story.append(Paragraph(md_to_rl(step, latin_only=latin_only), body_style))
 
+    # Adviser compliance notes (from risk review)
+    if risk_notes:
+        note_style = ParagraphStyle(
+            "NoteStyle",
+            parent=body_style,
+            fontSize=fs(9),
+            leading=fs(9) * leading_mult,
+            textColor=col_muted,
+        )
+        note_label_style = ParagraphStyle(
+            "NoteLabelStyle",
+            parent=body_style,
+            fontSize=fs(9),
+            leading=fs(9) * leading_mult,
+            fontName=bold_font,
+            textColor=col_muted,
+        )
+        story.append(CondPageBreak(45 * mm))
+        story.append(HRFlowable(width="100%", thickness=0.5, color=col_muted, spaceAfter=8))
+        story.append(Paragraph("Adviser Compliance Notes", ParagraphStyle(
+            "ComplianceHeading",
+            parent=heading_style,
+            fontSize=fs(10),
+            textColor=col_muted,
+        )))
+        for item in risk_notes:
+            area  = md_to_rl(item.get("area", ""), latin_only=latin_only)
+            title = md_to_rl(item.get("title", ""), latin_only=latin_only)
+            note  = md_to_rl(item.get("note", ""), latin_only=latin_only)
+            story.append(Paragraph(f"{area} — {title}", note_label_style))
+            story.append(Paragraph(note, note_style))
+            story.append(Spacer(1, 3 * mm))
+
     # Thank you footer
     story.append(Spacer(1, 10 * mm))
     story.append(HRFlowable(width="100%", thickness=1, color=col_rule, spaceAfter=10))
@@ -716,6 +782,38 @@ def build_pdf(simplified_text: str, language: str, a11y: dict | None = None, cus
 
 # ── Endpoints ────────────────────────────────────────────────────────────────
 
+@app.post("/analyse")
+async def analyse(file: UploadFile = File(...)):
+    """Analyse a mortgage suitability report for compliance risks. Returns JSON."""
+    content = await file.read()
+    try:
+        report_text = extract_text_from_file(content, file.filename)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not ANTHROPIC_API_KEY:
+        raise HTTPException(status_code=500, detail="ANTHROPIC_API_KEY not set.")
+
+    prompt = RISK_PROMPT.format(report_text=report_text[:15000])
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    message = client.messages.create(
+        model="claude-opus-4-6",
+        max_tokens=2048,
+        messages=[{"role": "user", "content": prompt}],
+    )
+
+    raw = message.content[0].text.strip()
+    # Strip markdown fences if Claude adds them
+    raw = re.sub(r'^```[a-z]*\n?', '', raw).rstrip('`').strip()
+
+    try:
+        result = json.loads(raw)
+    except Exception:
+        result = {"overall": "amber", "issues": []}
+
+    return JSONResponse(result)
+
+
 @app.post("/simplify")
 async def simplify(
     file: UploadFile = File(...),
@@ -723,6 +821,7 @@ async def simplify(
     a11y: str = Form(default="{}"),
     next_steps: str = Form(default="[]"),
     custom_note: str = Form(default=""),
+    risk_notes: str = Form(default="[]"),
 ):
     """Upload a mortgage suitability report, get a simplified PDF back."""
     content = await file.read()
@@ -745,13 +844,18 @@ async def simplify(
     except Exception:
         selected_ids = []
 
+    try:
+        risk_notes_list = [n for n in json.loads(risk_notes) if n.get("note", "").strip()]
+    except Exception:
+        risk_notes_list = []
+
     original_words = len(report_text.split())
 
     simplified, adviser_name, key_facts = simplify_with_claude(report_text, language)
     simplified_words = len(simplified.split())
 
     custom_steps = build_next_steps(selected_ids, adviser_name, custom_note) if selected_ids or custom_note.strip() else None
-    pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps, adviser_name=adviser_name)
+    pdf_bytes = build_pdf(simplified, language, a11y_prefs, custom_next_steps=custom_steps, adviser_name=adviser_name, risk_notes=risk_notes_list)
 
     # Append extra pages if uploaded
     if EXTRA_PAGES_PATH.exists():

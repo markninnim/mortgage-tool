@@ -458,6 +458,42 @@
 
     .hidden { display: none !important; }
 
+    /* Risk issue cards */
+    .risk-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left-width: 4px;
+      border-radius: 0 8px 8px 0;
+      padding: 16px 18px;
+    }
+    .risk-item.red    { border-left-color: #e53e3e; }
+    .risk-item.amber  { border-left-color: #d97706; }
+    .risk-item.green  { border-left-color: #276749; }
+    .risk-sev {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 8px;
+      border-radius: 4px;
+      margin-bottom: 6px;
+    }
+    .risk-sev.red   { background:#fff5f5; color:#c53030; }
+    .risk-sev.amber { background:#fffbeb; color:#92400e; }
+    .risk-sev.green { background:#f0fff4; color:#276749; }
+    .risk-area { font-size:0.8rem; color:var(--muted); margin-bottom:2px; }
+    .risk-title { font-size:0.9rem; font-weight:700; color:var(--navy); margin-bottom:6px; }
+    .risk-desc { font-size:0.82rem; color:var(--text); margin-bottom:4px; }
+    .risk-suggestion { font-size:0.8rem; color:var(--muted); font-style:italic; margin-bottom:10px; }
+    .risk-note-label { font-size:0.75rem; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:4px; }
+    .risk-note-input {
+      width:100%; border:1px solid var(--border); border-radius:6px;
+      padding:8px 10px; font-size:0.82rem; font-family:inherit;
+      resize:vertical; min-height:52px; color:var(--text); outline:none;
+    }
+    .risk-note-input:focus { border-color:var(--accent); }
+
     /* Next step items */
     .ns-item {
       display: flex;
@@ -663,8 +699,27 @@
         </g>
       </svg>
     </div>
-    <p>Reading and simplifying your report…</p>
-    <small>This usually takes 15–30 seconds</small>
+    <p id="progress-msg">Checking your report for risks and gaps…</p>
+    <small id="progress-sub">This usually takes 15–30 seconds</small>
+  </div>
+
+  <!-- Risk Review -->
+  <div id="risk-review-card" style="display:none;">
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <div id="rag-badge" style="padding:8px 20px;border-radius:8px;font-size:0.9rem;font-weight:700;"></div>
+      <div>
+        <div style="font-size:1rem;font-weight:700;color:var(--navy);">Compliance Review</div>
+        <div id="risk-summary-text" style="font-size:0.82rem;color:var(--muted);margin-top:2px;"></div>
+      </div>
+      <button onclick="confirmGenerate()" id="confirm-btn" class="submit" style="margin-left:auto;width:auto;padding:12px 28px;">
+        Confirm &amp; Generate Report
+      </button>
+    </div>
+    <div id="risk-issues-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;"></div>
+    <div style="text-align:center;">
+      <button onclick="confirmGenerate()" class="submit" style="max-width:380px;">Confirm &amp; Generate Report</button>
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:8px;">Add notes to any issues above if needed, then confirm to produce the report.</div>
+    </div>
   </div>
 
   <!-- Error -->
@@ -953,32 +1008,119 @@
     }
   });
 
-  // ── Submit ───────────────────────────────────────────────────────────────
+  // ── Submit flow ──────────────────────────────────────────────────────────
+  let _currentFile = null;
+
   async function submit() {
     const input = document.getElementById("file-input");
-    if (!input.files[0]) {
-      showError("Please upload a file first.");
-      return;
-    }
+    if (!input.files[0]) { showError("Please upload a file first."); return; }
+    _currentFile = input.files[0];
 
-    const language = document.getElementById("language-select").value || "English";
-
-    // Hide grid, show progress
     hide("main-grid");
     hide("error-card");
     hide("result-card");
+    hide("risk-review-card");
+    document.getElementById("progress-msg").textContent = "Checking your report for risks and gaps…";
+    document.getElementById("progress-sub").textContent = "This usually takes 15–30 seconds";
+    document.getElementById("progress-card").style.display = "block";
+
+    try {
+      const analyseBody = new FormData();
+      analyseBody.append("file", _currentFile);
+      const analyseRes = await fetch("/analyse", { method: "POST", body: analyseBody });
+      if (!analyseRes.ok) throw new Error("Risk analysis failed.");
+      const analysis = await analyseRes.json();
+
+      hide("progress-card");
+      showRiskReview(analysis);
+
+    } catch (e) {
+      hide("progress-card");
+      show("main-grid");
+      showError(e.message);
+    }
+  }
+
+  function showRiskReview(analysis) {
+    const overall = analysis.overall || "amber";
+    const issues  = analysis.issues  || [];
+
+    // RAG badge
+    const ragColors = { red: "#c53030", amber: "#92400e", green: "#276749" };
+    const ragBg     = { red: "#fff5f5", amber: "#fffbeb", green: "#f0fff4" };
+    const ragLabel  = { red: "🔴 High Risk", amber: "🟡 Review Needed", green: "🟢 Looking Good" };
+    const badge = document.getElementById("rag-badge");
+    badge.textContent = ragLabel[overall] || ragLabel.amber;
+    badge.style.background = ragBg[overall] || ragBg.amber;
+    badge.style.color = ragColors[overall] || ragColors.amber;
+
+    // Summary text
+    const reds   = issues.filter(i => i.severity === "red").length;
+    const ambers = issues.filter(i => i.severity === "amber").length;
+    const greens = issues.filter(i => i.severity === "green").length;
+    const parts = [];
+    if (reds)   parts.push(`${reds} high risk`);
+    if (ambers) parts.push(`${ambers} to review`);
+    if (greens) parts.push(`${greens} suggestion${greens > 1 ? "s" : ""}`);
+    document.getElementById("risk-summary-text").textContent =
+      parts.length ? parts.join(" · ") + " identified" : "No significant issues found";
+
+    // Issues list — reds first, then amber, then green
+    const sorted = [...issues].sort((a, b) => {
+      const order = { red: 0, amber: 1, green: 2 };
+      return (order[a.severity] ?? 1) - (order[b.severity] ?? 1);
+    });
+
+    const list = document.getElementById("risk-issues-list");
+    list.innerHTML = sorted.map((issue, i) => `
+      <div class="risk-item ${issue.severity || 'amber'}" data-index="${i}">
+        <div class="risk-sev ${issue.severity || 'amber'}">${issue.severity?.toUpperCase() || 'AMBER'}</div>
+        <div class="risk-area">${issue.area || ''}</div>
+        <div class="risk-title">${issue.title || ''}</div>
+        <div class="risk-desc">${issue.description || ''}</div>
+        <div class="risk-suggestion">Suggestion: ${issue.suggestion || ''}</div>
+        <div class="risk-note-label">Adviser note (optional)</div>
+        <textarea class="risk-note-input" placeholder="Add a note for this issue…"
+          data-area="${escHtml(issue.area || '')}"
+          data-title="${escHtml(issue.title || '')}"
+          data-severity="${issue.severity || 'amber'}"></textarea>
+      </div>
+    `).join("");
+
+    show("risk-review-card");
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  async function confirmGenerate() {
+    const language = document.getElementById("language-select").value || "English";
+
+    // Collect risk notes
+    const riskNotes = Array.from(document.querySelectorAll(".risk-note-input"))
+      .map(el => ({
+        area: el.dataset.area,
+        title: el.dataset.title,
+        severity: el.dataset.severity,
+        note: el.value.trim(),
+      }));
+
+    hide("risk-review-card");
+    document.getElementById("progress-msg").textContent = "Simplifying and generating your report…";
+    document.getElementById("progress-sub").textContent = "This usually takes 15–30 seconds";
     document.getElementById("progress-card").style.display = "block";
 
     const body = new FormData();
-    body.append("file", input.files[0]);
+    body.append("file", _currentFile);
     body.append("language", language);
     body.append("a11y", localStorage.getItem("a11y_prefs") || "{}");
     body.append("next_steps", JSON.stringify(getSelectedStepIds()));
     body.append("custom_note", document.getElementById("ns-custom").value || "");
+    body.append("risk_notes", JSON.stringify(riskNotes));
 
     try {
       const res = await fetch("/simplify", { method: "POST", body });
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: "Something went wrong." }));
         throw new Error(err.detail || "Conversion failed.");
@@ -993,25 +1135,19 @@
       document.getElementById("download-link").href = url;
       document.getElementById("download-link").download = fname;
 
-      // Parse and display report summary
       try {
         const raw = res.headers.get("X-Report-Summary");
-        if (raw) {
-          const s = JSON.parse(atob(raw));
-          renderSummary(s);
-        }
+        if (raw) renderSummary(JSON.parse(atob(raw)));
       } catch {}
 
       hide("progress-card");
       show("result-card");
-
-      // Auto-trigger download
       document.getElementById("download-link").click();
-      loadStats(); // refresh counter
+      loadStats();
 
     } catch (e) {
       hide("progress-card");
-      show("main-grid");
+      show("risk-review-card");
       showError(e.message);
     }
   }
@@ -1052,7 +1188,9 @@
   function reset() {
     hide("result-card");
     hide("error-card");
+    hide("risk-review-card");
     document.getElementById("report-summary").style.display = "none";
+    _currentFile = null;
     show("main-grid");
     document.getElementById("file-input").value = "";
     document.getElementById("chosen-label").classList.add("hidden");
